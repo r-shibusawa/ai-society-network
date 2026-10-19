@@ -1,0 +1,1014 @@
+<title>AIネットワーク探検室</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* レイアウト：上にデータセットのタブ，左に大きなネットワーク図，右に「調べる・実験する」パネル */
+:root {
+  --bg: #f3f4f1; --panel: #fcfcfb; --ink: #14171c; --ink2: #4c535e; --muted: #858b93;
+  --line: #dcdfd8; --edge: #b4b7b0; --accent: #1f5f8b; --accent-ink: #ffffff; --accent-soft: #e2ecf4;
+  --hl: #14171c; --dim: rgba(20,23,28,.08); --bad: #d03b3b; --good: #0ca30c;
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100; --c5: #e87ba4; --c6: #008300; --c7: #6250d6; --c8: #e34948; --other: #b9b8b2;
+  --f-display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
+  --f-body: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111315; --panel: #1a1c1e; --ink: #eef0ec; --ink2: #bfc4bd; --muted: #8b918b;
+  --line: #2d3032; --edge: #4a4e50; --accent: #6aa6d6; --accent-ink: #0c1620; --accent-soft: #1d2b37;
+  --hl: #ffffff; --dim: rgba(255,255,255,.07);
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300; --c7: #9085e9; --c8: #e66767; --other: #5a5c5a;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111315; --panel: #1a1c1e; --ink: #eef0ec; --ink2: #bfc4bd; --muted: #8b918b;
+  --line: #2d3032; --edge: #4a4e50; --accent: #6aa6d6; --accent-ink: #0c1620; --accent-soft: #1d2b37;
+  --hl: #ffffff; --dim: rgba(255,255,255,.07);
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300; --c7: #9085e9; --c8: #e66767; --other: #5a5c5a;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--f-body); font-size: 14px; line-height: 1.6; margin: 0; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 14px 28px; max-width: 1480px; margin: 0 auto; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: 1.55rem; letter-spacing: .02em; margin: 0; text-wrap: balance; }
+.sub { color: var(--ink2); font-size: .9rem; margin: 0; }
+nav.tabs { display: flex; gap: 6px; margin: 12px 0 12px; overflow-x: auto; padding-bottom: 4px; }
+nav.tabs button { flex: none; font: 500 .88rem var(--f-body); color: var(--ink2); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+nav.tabs button:hover { border-color: var(--accent); color: var(--ink); }
+nav.tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+nav.tabs .num { font-family: var(--f-mono); opacity: .7; margin-right: 6px; font-size: .78rem; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 14px; align-items: start; }
+@media (max-width: 960px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.stage { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; height: min(76vh, 820px); min-height: 420px; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.stage canvas:active { cursor: grabbing; }
+.stage .cap { position: absolute; left: 12px; top: 10px; right: 12px; pointer-events: none; display: flex; flex-direction: column; gap: 2px; }
+.stage .cap b { font-family: var(--f-display); font-size: 1.05rem; }
+.stage .cap span { color: var(--muted); font-size: .76rem; max-width: 60ch; }
+.legend { position: absolute; left: 12px; bottom: 10px; right: 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .76rem; color: var(--ink2); pointer-events: none; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.zoomctl { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 4px; }
+.zoomctl button { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 500 15px var(--f-mono); cursor: pointer; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: .78rem; box-shadow: 0 4px 16px rgba(0,0,0,.12); max-width: 280px; z-index: 5; }
+.tip b { font-size: .86rem; }
+.tip .k { color: var(--muted); }
+
+aside.side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.card h2 { font-family: var(--f-display); font-size: .98rem; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card h2 small { font-family: var(--f-body); font-weight: 400; color: var(--muted); font-size: .74rem; }
+.work { background: var(--accent-soft); border-color: transparent; }
+.work ol { margin: 0; padding-left: 1.3em; display: flex; flex-direction: column; gap: 4px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; }
+.stat .v { font-family: var(--f-mono); font-size: 1.12rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.stat .l { font-size: .72rem; color: var(--muted); line-height: 1.3; }
+.ctl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 10px; align-items: center; font-size: .84rem; }
+.ctl label { color: var(--ink2); }
+select, input[type="search"], input[type="number"] { font: inherit; font-size: .84rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; min-width: 0; width: 100%; }
+input[type="range"] { width: 100%; accent-color: var(--accent); }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btn { font: 500 .8rem var(--f-body); border: 1px solid var(--accent); color: var(--accent); background: transparent; border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.btn:hover { background: var(--accent-soft); }
+.btn.solid { background: var(--accent); color: var(--accent-ink); }
+.btn.ghost { border-color: var(--line); color: var(--ink2); }
+table.rank { width: 100%; border-collapse: collapse; font-size: .8rem; }
+table.rank td { padding: 3px 4px; border-top: 1px solid var(--line); }
+table.rank td.n { font-family: var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; color: var(--ink2); white-space: nowrap; }
+table.rank td.r { font-family: var(--f-mono); color: var(--muted); width: 1.6em; }
+table.rank td.name { overflow-wrap: anywhere; }
+table.rank tr { cursor: pointer; }
+table.rank tr:hover td { background: var(--dim); }
+.detail dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; margin: 6px 0 0; font-size: .8rem; }
+.detail dt { color: var(--muted); }
+.detail dd { margin: 0; font-family: var(--f-mono); overflow-wrap: anywhere; }
+.detail .nm { font-weight: 700; font-size: .95rem; overflow-wrap: anywhere; }
+.detail .nb { margin-top: 6px; font-size: .78rem; color: var(--ink2); max-height: 96px; overflow: auto; }
+.empty { color: var(--muted); font-size: .82rem; }
+.mini { width: 100%; height: auto; display: block; }
+.mini text { fill: var(--muted); font: 10px var(--f-mono); }
+.mini .ax { stroke: var(--line); }
+.note { font-size: .74rem; color: var(--muted); margin: 6px 0 0; }
+.readout { font-family: var(--f-mono); font-size: .86rem; font-variant-numeric: tabular-nums; }
+.year { display: flex; gap: 4px; }
+.year button { flex: 1; }
+details.gl summary { cursor: pointer; font-family: var(--f-display); font-weight: 700; }
+details.gl dl { font-size: .8rem; margin: 8px 0 0; }
+details.gl dt { font-weight: 700; }
+details.gl dd { margin: 0 0 6px; color: var(--ink2); }
+footer { color: var(--muted); font-size: .74rem; margin-top: 18px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>AIネットワーク探検室</h1>
+    <p class="sub">授業「AIと社会」　実データで「つながり」からAI社会を読み解く</p>
+  </header>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+
+  <div class="grid">
+    <div class="stage" id="stage">
+      <canvas id="cv" aria-label="ネットワーク図"></canvas>
+      <div class="cap"><b id="capTitle"></b><span id="capSrc"></span></div>
+      <div class="legend" id="legend"></div>
+      <div class="zoomctl"><button id="zin" aria-label="拡大">＋</button><button id="zout" aria-label="縮小">－</button><button id="zfit" aria-label="全体表示">□</button></div>
+      <div class="tip" id="tip" hidden></div>
+    </div>
+
+    <aside class="side" id="side"></aside>
+  </div>
+  <footer>
+    データ：SNAP ego-Facebook (McAuley &amp; Leskovec 2012)／Hugging Face Hub API・PyPI JSON API・OpenAlex（2026年10月取得）／Adamic &amp; Glance (2005)／PHEME (Zubiaga et al. 2016)。ドラッグで移動，ホイール・ピンチで拡大縮小，ノードをクリックで詳細表示。
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+const DATA = /*__DATA__*/;
+
+/* ============================================================ 共通ユーティリティ */
+const $ = (s, el = document) => el.querySelector(s);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let PAL = [];
+function readPalette() { PAL = [1,2,3,4,5,6,7,8].map(i => css(`--c${i}`)); }
+readPalette();
+const fmt = (v, d = 3) => v == null ? "—" : (Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : (+v).toFixed(d).replace(/\.?0+$/, ""));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+
+/* ============================================================ タブ定義 */
+const TABS = [
+  { key: "fb", label: "入門：SNSの友達" },
+  { key: "hf_models", label: "AIモデルの家系図" },
+  { key: "hf_orgs", label: "AI開発組織のつながり" },
+  { key: "pypi", label: "AIソフトウェア依存" },
+  { key: "collab", label: "AI研究の国際共著" },
+  { key: "polblogs", label: "SNSの政治的分断" },
+  { key: "pheme", label: "デマの広がり方" },
+  { key: "lab", label: "実験室" },
+];
+
+const WORK = {
+  fb: ["色（自動で見つけたグループ）は，どんな友達の集まり（中学・高校・大学・バイト先など）にあたりそう？",
+       "実験1の「ハブを1つ削除」を押して「あなた」を取り除こう。友達のつながりはどうなる？",
+       "「大きさ＝媒介中心性」にして，「あなた」の次に大きい友達を探そう。その人はどんな役割？",
+       "「色＝本人が作った友達リスト」に切り替え，自動で見つけたグループと比べよう。"],
+  hf_models: ["派生モデル数（入次数）が多い基盤モデルの上位3つは？ 開発元はどこ？",
+              "ひとつの基盤モデルに問題（バグ・偏り・ライセンス違反）があったら？「影響の伝わり方」で試そう。",
+              "ネットワークが「星形」の集まりになっているのはなぜ？"],
+  hf_orgs: ["他の組織に最も使われている組織（PageRank 上位）は？ 国や企業の偏りは？",
+            "ハブを狙って削除すると，つながりはどれくらい早く崩れる？ ランダム削除と比べよう。",
+            "AIの開発が一部の組織に集中することの良い面・悪い面を考えよう。"],
+  pypi: ["最も多くのライブラリに依存されているのは？ 名前を聞いたことはある？",
+         "numpy や typing-extensions が壊れたら，いくつのライブラリが影響を受ける？",
+         "「ランダム故障」と「ハブ狙い撃ち」の崩れ方の違いを説明しよう。"],
+  collab: ["2014→2019→2024 で「平均距離」と「国際共著率」はどう変わった？",
+           "論文数（大きさ）と媒介中心性（大きさを切替）で，上位の国は同じ？ 違う？",
+           "日本はどこにいる？ 日本と最も多く共著している国は？"],
+  polblogs: ["色は政治的立場。2つのグループはどのくらい分かれている？「立場をまたぐリンク率」は何%？",
+             "実験2で，リベラル側の最大ハブから情報を広げてみよう。保守側にはどれくらい届く？",
+             "このような分断は，推薦アルゴリズムのあるSNSでは強まる？弱まる？ 理由も考えよう。"],
+  pheme: ["事件と種類を選び，時間スライダーを動かして返信が広がる様子を見よう。最初の1時間で何割に達する？",
+          "「うわさ」と「うわさ以外」で，返信がつくまでの時間を比べよう（下のグラフ）。どちらが速い？ 例外の事件は？",
+          "なぜ未確認の情報ほど速く反応が集まるのだろう？ 自分がSNSで同じ状況になったらどうする？"],
+};
+
+const GLOSS = [
+  ["ノード／エッジ", "点（人・モデル・ソフト・国）と，それらを結ぶ線（関係）。"],
+  ["次数", "ノードにつながっているエッジの数。有向グラフでは「入次数（指される数）」と「出次数（指す数）」に分かれる。"],
+  ["媒介中心性", "他のノード同士の最短経路の上にどれだけ乗っているか。「橋渡し役」の度合い。"],
+  ["PageRank", "重要なノードから指されるほど重要，という考えでつけた点数。Google 検索の基礎になった。"],
+  ["クラスター係数", "自分の友達同士も友達である割合。「友達の友達は友達」の度合い。"],
+  ["平均距離", "2つのノードを結ぶ最短経路の長さの平均。小さいほど「世間は狭い」。"],
+  ["コミュニティ", "内部では密に，外部とは疎につながったグループ。ルーヴァン法で検出。"],
+  ["最大連結成分", "互いにたどり着けるノードの集まりのうち最大のもの。ネットワークがどれだけ一体になっているかの指標。"],
+];
+
+/* ============================================================ ネットワークの準備 */
+function prepare(d) {
+  if (d._ready) return d;
+  const idx = new Map(d.nodes.map((n, i) => [n.id, i]));
+  d.idx = idx;
+  d.E = d.links.map(e => [idx.get(e.s), idx.get(e.t), e.w || 1]);
+  d.adj = d.nodes.map(() => []);      // 無向の隣接リスト
+  d.inn = d.nodes.map(() => []);      // 有向: 自分を指しているノード（派生側・利用側）
+  for (const [a, b] of d.E) { d.adj[a].push(b); d.adj[b].push(a); d.inn[b].push(a); }
+  d.maxW = d3.max(d.E, e => e[2]) || 1;
+  d._ready = true;
+  return d;
+}
+
+function giantShare(d, removed) {
+  const n = d.nodes.length, seen = new Uint8Array(n); let best = 0;
+  for (let i = 0; i < n; i++) {
+    if (seen[i] || removed.has(i)) continue;
+    let size = 0; const st = [i]; seen[i] = 1;
+    while (st.length) { const v = st.pop(); size++; for (const u of d.adj[v]) if (!seen[u] && !removed.has(u)) { seen[u] = 1; st.push(u); } }
+    if (size > best) best = size;
+  }
+  return best / n;
+}
+
+/* ============================================================ 表示状態 */
+const S = {
+  tab: "fb", year: "2024", d: null,
+  sizeBy: "deg", colorBy: "comm", sel: -1, hover: -1,
+  removed: new Set(), removedLog: [], infected: null, infHist: [],
+  t: d3.zoomIdentity, sx: null, sy: null,
+};
+
+const cv = $("#cv"), ctx = cv.getContext("2d"), tip = $("#tip");
+let W = 0, H = 0, DPR = 1, quad = null;
+
+function dsKey() { return S.tab === "collab" ? `collab_${S.year}` : S.tab; }
+
+function sizeOptions(d) {
+  const o = [["deg", "次数"], ["btw", "媒介中心性"], ["pr", "PageRank"]];
+  if (d.directed) o.splice(1, 0, ["in", "入次数（指される数）"]);
+  if (d.nodes[0].papers != null) o.unshift(["papers", "論文数"]);
+  if (d.nodes[0].used != null) o.splice(1, 0, ["used", "使われた派生モデル数"]);
+  if (d.nodes[0].strength != null) o.push(["strength", "重み付き次数"]);
+  if (d.nodes[0].affected != null) o.push(["affected", "壊れたら影響を受ける数"]);
+  if (d.nodes[0].downloads !== undefined) o.push(["downloads", "ダウンロード数"]);
+  return o;
+}
+function colorOptions(d) {
+  const o = [["comm", "コミュニティ"]];
+  if (d.nodes[0].lean) o.unshift(["lean", "政治的立場"]);
+  if (d.nodes[0].circle) o.push(["circle", "本人が作った友達リスト"]);
+  if (d.nodes[0].org) o.push(["org", "開発組織"]);
+  if (d.nodes[0].seed !== undefined) o.push(["seed", "主要AIライブラリか"]);
+  return o;
+}
+
+/* 色：上位8カテゴリだけ色を割り当て，残りは「その他」。色はカテゴリに固定（順位で塗り替えない） */
+function colorMap(d) {
+  const key = S.colorBy;
+  const get = n => key === "seed" ? (n.seed ? "主要AIライブラリ（起点）" : "依存先") : n[key];
+  const cnt = d3.rollup(d.nodes, v => v.length, get);
+  const cats = [...cnt.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+  const top = cats.slice(0, 8);
+  const m = key === "lean" ? new Map([["リベラル", 0], ["保守", 7]]) : new Map(top.map((c, i) => [c, i]));
+  const label = c => key === "comm" ? `グループ${c + 1}` : c;
+  return { get, idx: n => m.has(get(n)) ? m.get(get(n)) : -1, legend: top.map(c => [label(c), m.get(c), cnt.get(c)]), more: cats.length > 8 };
+}
+
+function radiusFn(d) {
+  const key = S.sizeBy, n = d.nodes.length;
+  const max = d3.max(d.nodes, x => x[key] || 0) || 1;
+  const rmin = n > 1000 ? 1.6 : n > 300 ? 2.4 : n > 60 ? 3.2 : 5;
+  const rmax = n > 1000 ? 16 : n > 300 ? 18 : n > 60 ? 20 : 18;
+  return x => rmin + (rmax - rmin) * Math.sqrt(Math.max(0, x[key] || 0) / max);
+}
+
+/* ============================================================ 描画 */
+function resize() {
+  const r = cv.getBoundingClientRect();
+  DPR = window.devicePixelRatio || 1; W = r.width; H = r.height;
+  cv.width = W * DPR; cv.height = H * DPR;
+  if (S.d) { fitScales(S.d); draw(); }
+}
+
+function fitScales(d) {
+  // 大きなネットワークは外れた点に引っ張られないよう，上下0.5%を除いた範囲で全体表示する
+  const q = d.nodes.length > 300 ? .005 : 0;
+  const qx = d.nodes.map(n => n.x).sort(d3.ascending), qy = d.nodes.map(n => n.y).sort(d3.ascending);
+  const xs = [d3.quantileSorted(qx, q), d3.quantileSorted(qx, 1 - q)], ys = [d3.quantileSorted(qy, q), d3.quantileSorted(qy, 1 - q)];
+  const pad = 40, top = 56, bottom = 46;
+  const sw = (W - pad * 2) / (xs[1] - xs[0] || 1), sh = (H - top - bottom) / (ys[1] - ys[0] || 1);
+  const s = Math.min(sw, sh);
+  const cx = (xs[0] + xs[1]) / 2, cy = (ys[0] + ys[1]) / 2;
+  S.sx = x => W / 2 + (x - cx) * s; S.sy = y => (top + (H - bottom)) / 2 + (y - cy) * s;
+  quad = d3.quadtree().x(n => S.sx(n.x)).y(n => S.sy(n.y)).addAll(d.nodes);
+}
+
+function draw() {
+  const d = S.d; if (!d) return;
+  const cm = colorMap(d), R = radiusFn(d), t = S.t;
+  const edge = css("--edge"), other = css("--other"), hl = css("--hl"), bad = css("--bad"), panel = css("--panel");
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.save(); ctx.translate(t.x, t.y); ctx.scale(t.k, t.k);
+  const P = n => [S.sx(n.x), S.sy(n.y)];
+  const focus = S.sel >= 0 ? S.sel : -1;
+  const nbr = focus >= 0 ? new Set(d.adj[focus]) : null;
+  const inf = S.infected;
+  // エッジ
+  const base = d.nodes.length > 1000 ? .35 : .55;
+  for (const [a, b, w] of d.E) {
+    if (S.removed.has(a) || S.removed.has(b)) continue;
+    const on = focus >= 0 && (a === focus || b === focus);
+    const [x1, y1] = P(d.nodes[a]), [x2, y2] = P(d.nodes[b]);
+    ctx.globalAlpha = focus >= 0 ? (on ? .95 : .08) : base;
+    ctx.strokeStyle = on ? hl : edge;
+    ctx.lineWidth = ((d.maxW > 1 ? .4 + 5 * Math.sqrt(w / d.maxW) : (on ? 1.4 : .7))) / Math.sqrt(t.k);
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    if (on && d.directed) arrow(x1, y1, x2, y2, R(d.nodes[b]) / Math.sqrt(t.k), hl, t.k);
+  }
+  ctx.globalAlpha = 1;
+  // ノード（小さい順に描いて大きいものを上に）
+  const order = d._order || (d._order = d.nodes.map((_, i) => i));
+  order.sort((i, j) => (d.nodes[i][S.sizeBy] || 0) - (d.nodes[j][S.sizeBy] || 0));
+  for (const i of order) {
+    const n = d.nodes[i], [x, y] = P(n), r = R(n) / Math.sqrt(t.k);
+    const removed = S.removed.has(i);
+    let col = cm.idx(n) >= 0 ? PAL[cm.idx(n)] : other;
+    if (inf) col = inf.has(i) ? bad : other;
+    let a = 1;
+    if (removed) a = .12;
+    else if (focus >= 0 && i !== focus && !nbr.has(i)) a = .18;
+    ctx.globalAlpha = a;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.lineWidth = 1 / t.k; ctx.strokeStyle = panel; ctx.stroke();
+    if (i === focus || i === S.hover) { ctx.lineWidth = 2.2 / t.k; ctx.strokeStyle = hl; ctx.stroke(); }
+  }
+  ctx.globalAlpha = 1;
+  // ラベル：大きい順に重ならないよう配置
+  const placed = [];
+  const fs = 11.5 / t.k;
+  ctx.font = `500 ${fs}px ${css("--f-body")}`;
+  ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  const cand = [...order].reverse().filter(i => !S.removed.has(i));
+  const maxLabels = focus >= 0 ? 40 : (d.nodes.length > 300 ? 22 : d.nodes.length > 60 ? 30 : 40);
+  const must = focus >= 0 ? [focus, ...d.adj[focus]] : [];
+  let count = 0;
+  for (const i of [...new Set([...must, ...cand])]) {
+    if (count >= maxLabels) break;
+    const n = d.nodes[i], [x, y] = P(n), r = R(n) / Math.sqrt(t.k);
+    const sx = x * t.k + t.x, sy = y * t.k + t.y;
+    if (sx < -50 || sx > W + 50 || sy < 0 || sy > H) continue;
+    const w = ctx.measureText(n.label).width * t.k, h = 15;
+    const box = [sx - w / 2 - 3, sy - r * t.k - h - 2, w + 6, h];
+    if (placed.some(b => b[0] < box[0] + box[2] && box[0] < b[0] + b[2] && b[1] < box[1] + box[3] && box[1] < b[1] + b[3])) continue;
+    placed.push(box); count++;
+    ctx.globalAlpha = .82; ctx.fillStyle = panel;
+    ctx.fillRect(x - (w / 2 + 3) / t.k, y - r - (h + 2) / t.k, (w + 6) / t.k, h / t.k);
+    ctx.globalAlpha = 1; ctx.fillStyle = css("--ink");
+    ctx.fillText(n.label, x, y - r - 3 / t.k);
+  }
+  ctx.restore();
+  renderLegend(cm);
+}
+
+function arrow(x1, y1, x2, y2, r, col, k) {
+  const ang = Math.atan2(y2 - y1, x2 - x1), L = 8 / k;
+  const ex = x2 - Math.cos(ang) * (r + 1 / k), ey = y2 - Math.sin(ang) * (r + 1 / k);
+  ctx.globalAlpha = .95; ctx.fillStyle = col; ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - L * Math.cos(ang - .4), ey - L * Math.sin(ang - .4));
+  ctx.lineTo(ex - L * Math.cos(ang + .4), ey - L * Math.sin(ang + .4));
+  ctx.closePath(); ctx.fill();
+}
+
+function renderLegend(cm) {
+  const el = $("#legend");
+  if (S.infected) { el.innerHTML = `<span><i style="background:${css("--bad")}"></i>影響を受けた</span><span><i style="background:${css("--other")}"></i>まだ影響なし</span>`; return; }
+  el.innerHTML = cm.legend.map(([l, i]) => `<span><i style="background:${PAL[i]}"></i>${esc(l)}</span>`).join("") +
+    (cm.more ? `<span><i style="background:${css("--other")}"></i>その他</span>` : "") +
+    `<span>大きさ：${esc(sizeOptions(S.d).find(o => o[0] === S.sizeBy)?.[1] || "")}</span>`;
+}
+
+/* ============================================================ 操作（ズーム・ホバー・クリック） */
+const zoom = d3.zoom().scaleExtent([.4, 30]).on("zoom", e => { S.t = e.transform; S.tab === "lab" ? drawLab() : S.tab === "pheme" ? drawCasc() : draw(); });
+d3.select(cv).call(zoom).on("dblclick.zoom", null);
+$("#zin").onclick = () => d3.select(cv).transition().duration(250).call(zoom.scaleBy, 1.6);
+$("#zout").onclick = () => d3.select(cv).transition().duration(250).call(zoom.scaleBy, 1 / 1.6);
+$("#zfit").onclick = () => d3.select(cv).transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+
+function pick(ev) {
+  if (!quad) return -1;
+  const r = cv.getBoundingClientRect();
+  const [mx, my] = S.t.invert([ev.clientX - r.left, ev.clientY - r.top]);
+  const n = quad.find(mx, my, 18 / S.t.k);
+  return n ? S.d.idx.get(n.id) : -1;
+}
+cv.addEventListener("mousemove", ev => {
+  if (S.tab === "lab") return;
+  if (S.tab === "pheme") return cascHover(ev);
+  const i = pick(ev);
+  if (i !== S.hover) { S.hover = i; draw(); }
+  if (i >= 0) {
+    const n = S.d.nodes[i], r = $("#stage").getBoundingClientRect();
+    tip.innerHTML = `<b>${esc(n.label)}</b><br>${tipLines(n).map(([k, v]) => `<span class="k">${k}</span> ${v}`).join("<br>")}`;
+    tip.hidden = false;
+    const x = ev.clientX - r.left + 14, y = ev.clientY - r.top + 14;
+    tip.style.left = Math.min(x, r.width - 290) + "px"; tip.style.top = Math.min(y, r.height - 120) + "px";
+  } else tip.hidden = true;
+});
+cv.addEventListener("mouseleave", () => { tip.hidden = true; S.hover = -1; draw(); });
+cv.addEventListener("click", ev => {
+  if (S.tab === "lab" || S.tab === "pheme") return;
+  const i = pick(ev);
+  select(i);
+});
+
+function tipLines(n) {
+  const d = S.d, L = [["次数", n.deg]];
+  if (d.directed) L.push(["入次数／出次数", `${n.in}／${n.out}`]);
+  if (n.papers != null) L.push(["論文数", n.papers]);
+  if (n.affected != null) L.push(["壊れたら影響", `${n.affected} ライブラリ`]);
+  L.push(["媒介中心性", fmt(n.btw)]);
+  return L;
+}
+
+function select(i) {
+  S.sel = i; draw(); renderDetail();
+}
+
+/* ============================================================ 右パネル */
+function renderSide() {
+  const d = S.d, side = $("#side");
+  const st = d.stats;
+  side.innerHTML = `
+    ${S.tab === "collab" ? `<div class="card"><h2>年を選ぶ<small>同じ方法で抽出した3時点</small></h2>
+      <div class="year btns">${["2014", "2019", "2024"].map(y => `<button class="btn ${y === S.year ? "solid" : ""}" data-year="${y}">${y}年</button>`).join("")}</div></div>` : ""}
+    <div class="card work"><h2>ワーク<small>考えて，ノートに書こう</small></h2><ol>${WORK[S.tab].map(w => `<li>${esc(w)}</li>`).join("")}</ol></div>
+    <div class="card"><h2>ネットワーク全体の特徴<small>${d.directed ? "有向グラフ" : "無向グラフ"}</small></h2>
+      <div class="stats">
+        ${statBox(st.nodes.toLocaleString(), "ノード数")}
+        ${statBox(st.edges.toLocaleString(), "エッジ数")}
+        ${statBox(st.avgDegree, "平均次数")}
+        ${statBox(st.avgPath, "平均距離" + (st.giantShare < 1 ? "（最大連結成分）" : ""))}
+        ${statBox(st.clustering, "クラスター係数")}
+        ${statBox(st.clusteringRandom, "同規模ランダム網の<br>クラスター係数")}
+        ${st.intlShare != null ? statBox(Math.round(st.intlShare * 100) + "%", "国際共著率") : st.crossShare != null ? statBox((st.crossShare * 100).toFixed(1) + "%", "立場をまたぐ<br>リンク率") : statBox(st.communities, "コミュニティ数")}
+        ${statBox(st.modularity, "モジュラリティ")}
+        ${statBox(st.diameter, "直径（最長の最短距離）")}
+      </div>
+      <p class="note">${esc(d.edgeNote || "")}</p>
+    </div>
+    <div class="card"><h2>表示</h2>
+      <div class="ctl">
+        <label for="sizeBy">大きさ</label><select id="sizeBy">${sizeOptions(d).map(([k, l]) => `<option value="${k}" ${k === S.sizeBy ? "selected" : ""}>${l}</option>`).join("")}</select>
+        <label for="colorBy">色</label><select id="colorBy">${colorOptions(d).map(([k, l]) => `<option value="${k}" ${k === S.colorBy ? "selected" : ""}>${l}</option>`).join("")}</select>
+        <label for="q">検索</label><input type="search" id="q" list="names" placeholder="名前を入力"><datalist id="names">${d.nodes.slice().sort((a, b) => b.deg - a.deg).slice(0, 400).map(n => `<option value="${esc(n.label)}">`).join("")}</datalist>
+      </div>
+    </div>
+    <div class="card detail" id="detail"></div>
+    <div class="card"><h2>ランキング<small id="rankBy"></small></h2><table class="rank" id="rank"></table></div>
+    <div class="card"><h2>つながりの数の分布<small>両対数グラフ</small></h2><svg class="mini" id="ddist" viewBox="0 0 340 182" role="img" aria-label="次数分布"></svg>
+      <p class="note">横軸：つながりの数 k，縦軸：k 以上の割合。直線に近いほど「ごく一部のハブに集中」（べき乗則）。</p></div>
+    <div class="card"><h2>実験1：ノードを取り除く<small>故障・攻撃への強さ</small></h2>
+      <div class="btns">
+        <button class="btn" id="rmHub">ハブを1つ削除</button>
+        <button class="btn" id="rmRand">ランダムに1つ削除</button>
+        <button class="btn" id="rmHub5">ハブ上位5%を削除</button>
+        <button class="btn ghost" id="rmReset">元に戻す</button>
+      </div>
+      <p class="readout" id="giantOut"></p>
+      <div class="btns"><button class="btn solid" id="robRun">自動実験：ランダム vs 狙い撃ち</button></div>
+      <svg class="mini" id="robChart" viewBox="0 0 340 186" role="img" aria-label="頑健性の比較"></svg>
+    </div>
+    <div class="card"><h2>実験2：${d.directed ? "影響の伝わり方" : "情報の広がり方"}<small>${d.directed ? "元が壊れると，それを使う側へ" : "隣の人へ確率的に伝わる"}</small></h2>
+      <div class="ctl">
+        <label for="beta">伝わる確率</label><input type="range" id="beta" min="0.05" max="1" step="0.05" value="${d.directed ? 1 : 0.3}">
+      </div>
+      <div class="btns" style="margin-top:6px">
+        <button class="btn" id="spHub">最大ハブから開始</button>
+        <button class="btn" id="spSel">選んだノードから開始</button>
+        <button class="btn" id="spRand">ランダムな1つから開始</button>
+        <button class="btn ghost" id="spReset">終了</button>
+      </div>
+      <p class="readout" id="spOut"></p>
+      <svg class="mini" id="spChart" viewBox="0 0 340 140" role="img" aria-label="広がりの推移"></svg>
+    </div>
+    <div class="card"><details class="gl"><summary>用語集</summary><dl>${GLOSS.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("")}</dl></details></div>
+    <div class="card"><h2>データについて</h2><p class="note" style="margin:0">${esc(d.source)}</p></div>
+  `;
+  side.querySelectorAll("[data-year]").forEach(b => b.onclick = () => { S.year = b.dataset.year; load(); });
+  $("#sizeBy").onchange = e => { S.sizeBy = e.target.value; draw(); renderRank(); };
+  $("#colorBy").onchange = e => { S.colorBy = e.target.value; draw(); };
+  $("#q").onchange = e => { const v = e.target.value.trim().toLowerCase(); const i = d.nodes.findIndex(n => n.label.toLowerCase() === v || n.id.toLowerCase() === v) ; const j = i >= 0 ? i : d.nodes.findIndex(n => n.label.toLowerCase().includes(v)); if (j >= 0) { select(j); centerOn(j); } };
+  $("#rmHub").onclick = () => removeBy("hub", 1);
+  $("#rmRand").onclick = () => removeBy("rand", 1);
+  $("#rmHub5").onclick = () => removeBy("hub", Math.max(1, Math.round(d.nodes.length * .05)));
+  $("#rmReset").onclick = () => { S.removed.clear(); updateGiant(); draw(); };
+  $("#robRun").onclick = runRobust;
+  $("#spHub").onclick = () => startSpread(hubIndex());
+  $("#spSel").onclick = () => startSpread(S.sel >= 0 ? S.sel : hubIndex());
+  $("#spRand").onclick = () => startSpread(Math.floor(Math.random() * d.nodes.length));
+  $("#spReset").onclick = stopSpread;
+  renderDetail(); renderRank(); renderDegree(); updateGiant(); drawRobust(null);
+}
+const statBox = (v, l) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+
+function hubIndex() {
+  const d = S.d, key = d.directed ? "in" : "deg";
+  let best = 0; d.nodes.forEach((n, i) => { if (n[key] > d.nodes[best][key]) best = i; }); return best;
+}
+
+function centerOn(i) {
+  const n = S.d.nodes[i], k = Math.max(S.t.k, 2.2);
+  const x = S.sx(n.x), y = S.sy(n.y);
+  d3.select(cv).transition().duration(400).call(zoom.transform, d3.zoomIdentity.translate(W / 2 - x * k, H / 2 - y * k).scale(k));
+}
+
+function renderDetail() {
+  const el = $("#detail"); if (!el) return;
+  const d = S.d;
+  if (S.sel < 0) { el.innerHTML = `<h2>選んだノード</h2><p class="empty">図の中の点をクリックすると，ここに詳しい情報が出ます。</p>`; return; }
+  const n = d.nodes[S.sel];
+  const rows = [["次数", n.deg]];
+  if (d.directed) rows.push(["入次数（指される）", n.in], ["出次数（指す）", n.out]);
+  if (n.papers != null) rows.push(["論文数（抽出中）", n.papers]);
+  if (n.strength != null) rows.push(["重み付き次数", n.strength]);
+  rows.push(["媒介中心性", fmt(n.btw, 4)], ["PageRank", fmt(n.pr, 4)], ["クラスター係数", fmt(n.cc)], ["コミュニティ", `グループ${n.comm + 1}`]);
+  if (n.circle) rows.push(["友達リスト", n.circle]);
+  if (n.lean) rows.push(["政治的立場", n.lean]);
+  if (n.org) rows.push(["開発組織", n.org]);
+  if (n.task) rows.push(["タスク", n.task]);
+  if (n.downloads != null) rows.push(["ダウンロード数", n.downloads.toLocaleString()]);
+  if (n.created) rows.push(["公開日", n.created]);
+  if (n.affected != null) rows.push(["壊れたら影響", `${n.affected} ライブラリ`]);
+  if (n.version) rows.push(["バージョン", n.version]);
+  const rank = d.nodes.filter(x => (x[S.sizeBy] || 0) > (n[S.sizeBy] || 0)).length + 1;
+  const nb = d.adj[S.sel].map(i => d.nodes[i]).sort((a, b) => b.deg - a.deg);
+  el.innerHTML = `<h2>選んだノード<small>${esc(sizeOptions(d).find(o => o[0] === S.sizeBy)[1])}で ${rank} 位</small></h2>
+    <div class="nm">${esc(n.id)}</div>${n.summary ? `<div class="note">${esc(n.summary)}</div>` : ""}
+    <dl>${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+    <div class="nb"><b>つながっている相手（${nb.length}）</b><br>${nb.slice(0, 60).map(x => esc(x.label)).join("，")}${nb.length > 60 ? " …" : ""}</div>
+    <div class="btns" style="margin-top:8px"><button class="btn ghost" id="unsel">選択を解除</button></div>`;
+  $("#unsel").onclick = () => select(-1);
+}
+
+function renderRank() {
+  const d = S.d, key = S.sizeBy, el = $("#rank"); if (!el) return;
+  $("#rankBy").textContent = sizeOptions(d).find(o => o[0] === key)[1] + "の上位10";
+  const top = d.nodes.map((n, i) => [n, i]).sort((a, b) => (b[0][key] || 0) - (a[0][key] || 0)).slice(0, 10);
+  el.innerHTML = top.map(([n, i], r) => `<tr data-i="${i}"><td class="r">${r + 1}</td><td class="name">${esc(n.label)}</td><td class="n">${fmt(n[key], 3)}</td></tr>`).join("");
+  el.querySelectorAll("tr").forEach(tr => tr.onclick = () => { const i = +tr.dataset.i; select(i); centerOn(i); });
+}
+
+function renderDegree() {
+  const d = S.d, svg = d3.select("#ddist"); svg.selectAll("*").remove();
+  const key = d.directed ? "in" : "deg";
+  const vals = d.nodes.map(n => n[key]).filter(v => v > 0);
+  const ks = [...new Set(vals)].sort((a, b) => a - b);
+  const pts = ks.map(k => [k, vals.filter(v => v >= k).length / vals.length]);
+  const x = d3.scaleLog().domain([1, d3.max(ks) * 1.2]).range([38, 330]);
+  const y = d3.scaleLog().domain([d3.min(pts, p => p[1]) * .8, 1]).range([150, 10]);
+  svg.append("g").attr("transform", "translate(0,150)").call(d3.axisBottom(x).ticks(4, "~s").tickSize(3)).call(g => g.select(".domain").attr("class", "ax"));
+  svg.append("g").attr("transform", "translate(38,0)").call(d3.axisLeft(y).ticks(3, "~g").tickSize(3)).call(g => g.select(".domain").attr("class", "ax"));
+  svg.selectAll("line").attr("stroke", css("--line"));
+  svg.append("g").selectAll("circle").data(pts).join("circle").attr("cx", p => x(p[0])).attr("cy", p => y(p[1])).attr("r", 3.2).attr("fill", PAL[0]);
+  svg.append("text").attr("x", 330).attr("y", 180).attr("text-anchor", "end").text(d.directed ? "入次数 k" : "次数 k");
+}
+
+/* ---------- 実験1：取り除く */
+function removeBy(mode, k) {
+  const d = S.d;
+  for (let c = 0; c < k; c++) {
+    const alive = d.nodes.map((_, i) => i).filter(i => !S.removed.has(i));
+    if (!alive.length) break;
+    let pickI;
+    if (mode === "hub") pickI = alive.reduce((b, i) => d.nodes[i].deg > d.nodes[b].deg ? i : b, alive[0]);
+    else pickI = alive[Math.floor(Math.random() * alive.length)];
+    S.removed.add(pickI);
+  }
+  updateGiant(); draw();
+}
+function updateGiant() {
+  const el = $("#giantOut"); if (!el) return;
+  const g = giantShare(S.d, S.removed);
+  el.innerHTML = `削除：${S.removed.size} ノード（${(S.removed.size / S.d.nodes.length * 100).toFixed(1)}%）<br>最大連結成分：<b>${(g * 100).toFixed(1)}%</b>`;
+}
+function runRobust() {
+  const d = S.d, n = d.nodes.length, steps = 26, F = d3.range(steps).map(i => i * .02);
+  const hubOrder = d.nodes.map((_, i) => i).sort((a, b) => d.nodes[b].deg - d.nodes[a].deg);
+  const curve = order => F.map(f => giantShare(d, new Set(order.slice(0, Math.round(f * n)))));
+  const att = curve(hubOrder);
+  const R = rng(7), runs = 4, rnd = F.map(() => 0);
+  for (let r = 0; r < runs; r++) {
+    const o = d.nodes.map((_, i) => i); for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+    curve(o).forEach((v, i) => rnd[i] += v / runs);
+  }
+  drawRobust({ F, att, rnd });
+}
+function drawRobust(res) {
+  const svg = d3.select("#robChart"); svg.selectAll("*").remove();
+  const x = d3.scaleLinear().domain([0, 50]).range([38, 330]), y = d3.scaleLinear().domain([0, 100]).range([150, 12]);
+  svg.append("g").attr("transform", "translate(0,150)").call(d3.axisBottom(x).ticks(5).tickFormat(v => v + "%").tickSize(3));
+  svg.append("g").attr("transform", "translate(38,0)").call(d3.axisLeft(y).ticks(4).tickFormat(v => v + "%").tickSize(3));
+  svg.selectAll(".domain, .tick line").attr("stroke", css("--line"));
+  svg.append("text").attr("x", 330).attr("y", 184).attr("text-anchor", "end").text("取り除いた割合");
+  svg.append("text").attr("x", 40).attr("y", 8).text("最大連結成分");
+  if (!res) { svg.append("text").attr("x", 184).attr("y", 85).attr("text-anchor", "middle").text("ボタンを押すと比較グラフを描きます"); return; }
+  const line = d3.line().x((_, i) => x(res.F[i] * 100)).y(v => y(v * 100));
+  [[res.rnd, PAL[0], "ランダムに故障"], [res.att, css("--bad"), "ハブを狙い撃ち"]].forEach(([v, c, l], k) => {
+    svg.append("path").attr("d", line(v)).attr("fill", "none").attr("stroke", c).attr("stroke-width", 2.2);
+    svg.append("circle").attr("cx", 200).attr("cy", 22 + k * 15).attr("r", 4).attr("fill", c);
+    svg.append("text").attr("x", 208).attr("y", 25 + k * 15).text(l).style("fill", css("--ink2"));
+  });
+}
+
+/* ---------- 実験2：広がり */
+let spTimer = null;
+function startSpread(seed) {
+  stopSpread(true);
+  const d = S.d, beta = +$("#beta").value, R = rng(Date.now());
+  const nb = d.directed ? d.inn : d.adj;
+  S.infected = new Set([seed]); S.infHist = [1];
+  let frontier = [seed];
+  select(seed);
+  S.sel = -1;
+  const tick = () => {
+    // 有向：新しく壊れたノードから，それを使う側へ伝わる／無向：知っている人全員が毎ステップ隣に伝える（SIモデル）
+    const from = d.directed ? frontier : [...S.infected], next = [];
+    for (const v of from) for (const u of nb[v]) if (!S.infected.has(u) && R() < beta) { S.infected.add(u); next.push(u); }
+    frontier = next;
+    S.infHist.push(S.infected.size);
+    draw(); drawSpread();
+    const stuck = S.infHist.length > 4 && S.infHist.slice(-4).every(v => v === S.infected.size);
+    if (stuck || S.infHist.length > 40) { clearInterval(spTimer); spTimer = null; }
+  };
+  draw(); drawSpread();
+  spTimer = setInterval(tick, 380);
+}
+function stopSpread(keep) {
+  if (spTimer) clearInterval(spTimer); spTimer = null;
+  if (!keep) { S.infected = null; S.infHist = []; draw(); drawSpread(); }
+}
+function drawSpread() {
+  const svg = d3.select("#spChart"); if (svg.empty()) return; svg.selectAll("*").remove();
+  const d = S.d, h = S.infHist, n = d.nodes.length;
+  const out = $("#spOut");
+  if (!h.length) { out.textContent = "開始ノードを選んで試そう。"; return; }
+  out.innerHTML = `ステップ ${h.length - 1}：<b>${S.infected.size.toLocaleString()}</b> ノード（全体の ${(S.infected.size / n * 100).toFixed(1)}%）に${d.directed ? "影響" : "到達"}`;
+  const x = d3.scaleLinear().domain([0, Math.max(10, h.length - 1)]).range([38, 330]), y = d3.scaleLinear().domain([0, 100]).range([108, 8]);
+  svg.append("g").attr("transform", "translate(0,108)").call(d3.axisBottom(x).ticks(5).tickSize(3));
+  svg.append("g").attr("transform", "translate(38,0)").call(d3.axisLeft(y).ticks(3).tickFormat(v => v + "%").tickSize(3));
+  svg.selectAll(".domain, .tick line").attr("stroke", css("--line"));
+  svg.append("path").attr("d", d3.line().x((_, i) => x(i)).y(v => y(v / n * 100))(h)).attr("fill", "none").attr("stroke", css("--bad")).attr("stroke-width", 2.2);
+  svg.append("text").attr("x", 330).attr("y", 138).attr("text-anchor", "end").text("ステップ");
+}
+
+/* ============================================================ 実験室（モデル生成・エコーチェンバー） */
+let labSim = null, labTimer = null, LAB = null;
+function renderLab() {
+  $("#capTitle").textContent = "実験室";
+  $("#capSrc").textContent = "ネットワークのモデルを自分で作って比べる";
+  $("#side").innerHTML = `
+    <div class="card work"><h2>ワーク<small>考えて，ノートに書こう</small></h2><ol>
+      <li>同じノード数・平均次数で「ランダム」と「スケールフリー」を作り，分布と最大次数を比べよう。</li>
+      <li>スモールワールドで「つなぎ替え確率」を0→0.1にすると平均距離とクラスター係数はどう変わる？</li>
+      <li>エコーチェンバー実験：推薦の強さを上げると，異なる意見どうしのつながりはどうなる？</li></ol></div>
+    <div class="card"><h2>A. ネットワークを作る</h2>
+      <div class="ctl">
+        <label for="gm">モデル</label><select id="gm"><option value="er">ランダム（ER）</option><option value="ws">スモールワールド（WS）</option><option value="ba" selected>スケールフリー（BA：優先的選択）</option></select>
+        <label for="gn">ノード数</label><input type="range" id="gn" min="30" max="400" step="10" value="200">
+        <label for="gk">平均次数</label><input type="range" id="gk" min="2" max="10" step="2" value="4">
+        <label for="gp">つなぎ替え確率</label><input type="range" id="gp" min="0" max="1" step="0.01" value="0.05">
+      </div>
+      <p class="readout" id="gparams"></p>
+      <div class="btns"><button class="btn solid" id="gmake">作る</button><button class="btn" id="ggrow">成長の様子を見る（BA）</button></div>
+      <div class="stats" id="gstats" style="margin-top:10px"></div>
+      <svg class="mini" id="ghist" viewBox="0 0 340 162" role="img" aria-label="次数分布"></svg>
+    </div>
+    <div class="card"><h2>B. 推薦とエコーチェンバー<small>Holme–Newman 型モデル</small></h2>
+      <p class="note" style="margin:0 0 6px">意見が違う相手と出会ったとき，確率 φ で「つながりを切って同じ意見の人をフォロー（推薦）」，残りは相手の意見に影響される。</p>
+      <div class="ctl"><label for="phi">推薦の強さ φ</label><input type="range" id="phi" min="0" max="1" step="0.05" value="0.8"></div>
+      <p class="readout" id="phiOut"></p>
+      <div class="btns"><button class="btn solid" id="echoRun">始める</button><button class="btn ghost" id="echoStop">止める</button></div>
+      <svg class="mini" id="echoChart" viewBox="0 0 340 140" role="img" aria-label="異なる意見のつながりの割合"></svg>
+    </div>`;
+  const upd = () => {
+    const m = $("#gm").value;
+    $("#gparams").textContent = `n=${$("#gn").value}，平均次数=${$("#gk").value}` + (m === "ws" ? `，つなぎ替え確率=${$("#gp").value}` : "");
+    $("#gp").disabled = m !== "ws";
+  };
+  ["gm", "gn", "gk", "gp"].forEach(id => $("#" + id).oninput = upd); upd();
+  $("#phi").oninput = () => $("#phiOut").textContent = `φ = ${$("#phi").value}`; $("#phi").oninput();
+  $("#gmake").onclick = () => makeModel(false);
+  $("#ggrow").onclick = () => { $("#gm").value = "ba"; upd(); makeModel(true); };
+  $("#echoRun").onclick = runEcho;
+  $("#echoStop").onclick = () => { clearInterval(labTimer); labTimer = null; };
+  makeModel(false);
+}
+
+function genModel(m, n, k, p, R) {
+  const E = new Set(), key = (a, b) => a < b ? `${a}-${b}` : `${b}-${a}`;
+  const add = (a, b) => { if (a !== b) E.add(key(a, b)); };
+  if (m === "er") { const M = Math.round(n * k / 2); while (E.size < M) add(Math.floor(R() * n), Math.floor(R() * n)); }
+  else if (m === "ws") {
+    for (let i = 0; i < n; i++) for (let j = 1; j <= k / 2; j++) {
+      let t = (i + j) % n;
+      if (R() < p) { do { t = Math.floor(R() * n); } while (t === i || E.has(key(i, t))); }
+      add(i, t);
+    }
+  } else {
+    const mm = Math.max(1, k / 2), targets = [];
+    for (let i = 0; i <= mm; i++) for (let j = 0; j < i; j++) { add(i, j); targets.push(i, j); }
+    for (let v = mm + 1; v < n; v++) {
+      const chosen = new Set();
+      while (chosen.size < mm) chosen.add(targets[Math.floor(R() * targets.length)]); // 次数に比例して選ぶ（優先的選択）
+      for (const u of chosen) { add(v, u); targets.push(v, u); }
+    }
+  }
+  return [...E].map(s => s.split("-").map(Number));
+}
+
+function makeModel(grow) {
+  clearInterval(labTimer); labTimer = null;
+  const m = $("#gm").value, n = +$("#gn").value, k = +$("#gk").value, p = +$("#gp").value;
+  const E = genModel(m, n, k, p, rng(Math.floor(Math.random() * 1e9)));
+  const nodes = d3.range(n).map(i => ({ id: String(i), label: String(i) }));
+  if (m === "ws") nodes.forEach((d, i) => { d.x = Math.cos(i / n * 2 * Math.PI) * 300; d.y = Math.sin(i / n * 2 * Math.PI) * 300; });
+  LAB = { nodes, E, kind: "model", m };
+  const deg = new Array(n).fill(0); E.forEach(([a, b]) => { deg[a]++; deg[b]++; });
+  nodes.forEach((d, i) => d.deg = deg[i]);
+  labStats(n, E, deg);
+  if (grow) { // 成長の様子：ノードを追加順に表示
+    LAB.visible = 10;
+    labTimer = setInterval(() => { LAB.visible = Math.min(n, LAB.visible + Math.ceil(n / 60)); drawLab(); if (LAB.visible >= n) { clearInterval(labTimer); labTimer = null; } }, 120);
+  } else LAB.visible = n;
+  startForce(m === "ws");
+}
+
+function labStats(n, E, deg) {
+  const adj = d3.range(n).map(() => []); E.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
+  let tot = 0, cnt = 0;
+  const srcs = d3.range(Math.min(n, 120));
+  for (const s of srcs) { const dist = new Int32Array(n).fill(-1); dist[s] = 0; const q = [s]; for (let h = 0; h < q.length; h++) { const v = q[h]; for (const u of adj[v]) if (dist[u] < 0) { dist[u] = dist[v] + 1; q.push(u); } } for (let i = 0; i < n; i++) if (dist[i] > 0) { tot += dist[i]; cnt++; } }
+  let cc = 0;
+  for (let v = 0; v < n; v++) { const nb = adj[v], kk = nb.length; if (kk < 2) continue; const s = new Set(nb); let t = 0; for (const a of nb) for (const b of adj[a]) if (b > a && s.has(b)) t++; cc += t / (kk * (kk - 1) / 2); }
+  $("#gstats").innerHTML = statBox((tot / cnt).toFixed(2), "平均距離") + statBox((cc / n).toFixed(3), "クラスター係数") + statBox(d3.max(deg), "最大次数");
+  const svg = d3.select("#ghist"); svg.selectAll("*").remove();
+  const counts = d3.rollups(deg, v => v.length, d => d).sort((a, b) => a[0] - b[0]);
+  const x = d3.scaleLinear().domain([0, d3.max(deg) + 1]).range([38, 330]), y = d3.scaleLinear().domain([0, d3.max(counts, c => c[1])]).nice().range([128, 20]);
+  svg.append("g").attr("transform", "translate(0,128)").call(d3.axisBottom(x).ticks(6).tickSize(3));
+  svg.append("g").attr("transform", "translate(38,0)").call(d3.axisLeft(y).ticks(3).tickSize(3));
+  svg.selectAll(".domain, .tick line").attr("stroke", css("--line"));
+  const bw = Math.max(1.5, (x(1) - x(0)) - 2);
+  svg.append("g").selectAll("rect").data(counts).join("rect").attr("x", c => x(c[0]) - bw / 2).attr("y", c => y(c[1])).attr("width", bw).attr("height", c => 128 - y(c[1])).attr("fill", PAL[0]).attr("rx", 1.5);
+  svg.append("text").attr("x", 330).attr("y", 160).attr("text-anchor", "end").text("次数（つながりの数）");
+  svg.append("text").attr("x", 40).attr("y", 8).text("ノード数");
+}
+
+function startForce(ring) {
+  if (labSim) labSim.stop();
+  const nodes = LAB.nodes, links = LAB.E.map(([a, b]) => ({ source: a, target: b }));
+  LAB.links = links;
+  labSim = d3.forceSimulation(nodes)
+    .force("link", d3.forceLink(links).distance(ring ? 14 : 22).strength(ring ? .05 : .4))
+    .force("charge", d3.forceManyBody().strength(ring ? -6 : -26))
+    .force("x", d3.forceX(0).strength(.04)).force("y", d3.forceY(0).strength(.04))
+    .alphaDecay(.02)
+    .on("tick", drawLab);
+  if (ring) labSim.force("link").strength(0.0);
+  S.t = d3.zoomIdentity; d3.select(cv).call(zoom.transform, d3.zoomIdentity);
+}
+
+function drawLab() {
+  if (S.tab !== "lab" || !LAB) return;
+  const t = S.t, nodes = LAB.nodes;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  const ext = 1.1 * (d3.max(nodes, d => Math.max(Math.abs(d.x), Math.abs(d.y))) || 1);
+  const s = Math.min(W, H - 90) / 2 / ext;
+  ctx.save(); ctx.translate(t.x, t.y); ctx.scale(t.k, t.k); ctx.translate(W / 2, H / 2 + 10);
+  const vis = LAB.visible ?? nodes.length;
+  ctx.strokeStyle = css("--edge"); ctx.globalAlpha = .6; ctx.lineWidth = .8 / t.k;
+  ctx.beginPath();
+  for (const l of LAB.links) { if (l.source.index >= vis || l.target.index >= vis) continue; ctx.moveTo(l.source.x * s, l.source.y * s); ctx.lineTo(l.target.x * s, l.target.y * s); }
+  ctx.stroke(); ctx.globalAlpha = 1;
+  const deg = new Map(); for (const l of LAB.links) if (l.source.index < vis && l.target.index < vis) { deg.set(l.source.index, (deg.get(l.source.index) || 0) + 1); deg.set(l.target.index, (deg.get(l.target.index) || 0) + 1); }
+  const maxd = d3.max([...deg.values()]) || 1;
+  for (const d of nodes) {
+    if (d.index >= vis) continue;
+    const r = LAB.kind === "echo" ? 4.5 : 2.5 + 11 * Math.sqrt((deg.get(d.index) || 0) / maxd);
+    ctx.beginPath(); ctx.arc(d.x * s, d.y * s, r / Math.sqrt(t.k), 0, Math.PI * 2);
+    ctx.fillStyle = LAB.kind === "echo" ? PAL[d.op] : PAL[1]; ctx.fill();
+    ctx.lineWidth = 1 / t.k; ctx.strokeStyle = css("--panel"); ctx.stroke();
+  }
+  ctx.restore();
+  const lg = $("#legend");
+  lg.innerHTML = LAB.kind === "echo" ? `<span><i style="background:${PAL[0]}"></i>意見A</span><span><i style="background:${PAL[1]}"></i>意見B</span>` : `<span>大きさ：次数</span>${vis < nodes.length ? `<span>成長中：${vis} / ${nodes.length} ノード</span>` : ""}`;
+}
+
+function runEcho() {
+  clearInterval(labTimer);
+  const n = 120, k = 6, R = rng(Math.floor(Math.random() * 1e9)), phi = +$("#phi").value;
+  const E = genModel("er", n, k, 0, R);
+  const nodes = d3.range(n).map(i => ({ id: String(i), op: R() < .5 ? 0 : 1 }));
+  LAB = { nodes, E, kind: "echo" };
+  LAB.visible = n;
+  startForce(false);
+  labSim.force("charge").strength(-18);
+  const hist = [];
+  const adj = () => { const a = d3.range(n).map(() => new Set()); LAB.links.forEach(l => { a[l.source.index].add(l.target.index); a[l.target.index].add(l.source.index); }); return a; };
+  const cross = () => LAB.links.filter(l => nodes[l.source.index].op !== nodes[l.target.index].op).length / LAB.links.length;
+  hist.push(cross());
+  labTimer = setInterval(() => {
+    const A = adj();
+    for (let s = 0; s < 40; s++) {
+      const li = Math.floor(R() * LAB.links.length), l = LAB.links[li];
+      let v = l.source.index, u = l.target.index; if (R() < .5) [v, u] = [u, v];
+      if (nodes[v].op === nodes[u].op) continue;
+      if (R() < phi) {
+        const cand = d3.range(n).filter(w => w !== v && nodes[w].op === nodes[v].op && !A[v].has(w));
+        if (!cand.length) continue;
+        const w = cand[Math.floor(R() * cand.length)];
+        A[v].delete(u); A[u].delete(v); A[v].add(w); A[w].add(v);
+        LAB.links[li] = { source: nodes[v], target: nodes[w] };
+      } else nodes[v].op = nodes[u].op;
+    }
+    labSim.force("link").links(LAB.links); labSim.alpha(.5).restart();
+    hist.push(cross());
+    drawEcho(hist);
+    if (hist.length > 120 || hist[hist.length - 1] === 0) { clearInterval(labTimer); labTimer = null; }
+  }, 160);
+  drawEcho(hist);
+}
+function drawEcho(h) {
+  const svg = d3.select("#echoChart"); if (svg.empty()) return; svg.selectAll("*").remove();
+  $("#phiOut").innerHTML = `φ = ${$("#phi").value}　異なる意見どうしのつながり：<b>${(h[h.length - 1] * 100).toFixed(0)}%</b>`;
+  const x = d3.scaleLinear().domain([0, 120]).range([38, 330]), y = d3.scaleLinear().domain([0, 60]).range([108, 8]);
+  svg.append("g").attr("transform", "translate(0,108)").call(d3.axisBottom(x).ticks(5).tickSize(3));
+  svg.append("g").attr("transform", "translate(38,0)").call(d3.axisLeft(y).ticks(3).tickFormat(v => v + "%").tickSize(3));
+  svg.selectAll(".domain, .tick line").attr("stroke", css("--line"));
+  svg.append("path").attr("d", d3.line().x((_, i) => x(i)).y(v => y(Math.min(60, v * 100)))(h)).attr("fill", "none").attr("stroke", PAL[0]).attr("stroke-width", 2.2);
+  svg.append("text").attr("x", 330).attr("y", 138).attr("text-anchor", "end").text("時間");
+}
+
+/* ============================================================ デマの広がり方（PHEME の返信カスケード） */
+const C = { ev: "sydneysiege", rum: 1, id: null, T: 1e9, timer: null, hover: -1 };
+const PH = DATA.pheme;
+function cascList() { return PH.cascades.filter(c => c.event === C.ev && c.rumor === C.rum); }
+function curCasc() { return PH.cascades.find(c => c.id === C.id) || cascList()[0]; }
+const fmtMin = m => m < 60 ? `${Math.round(m)}分` : m < 1440 ? `${(m / 60).toFixed(1)}時間` : `${(m / 1440).toFixed(1)}日`;
+
+function renderCasc() {
+  $("#capTitle").textContent = "デマ（うわさ）の広がり方：Twitter の返信の連鎖";
+  $("#capSrc").textContent = "中心＝元の投稿，外側ほど「返信への返信」。色が濃いほど早い時間の反応";
+  const c0 = curCasc(); C.id = c0.id;
+  $("#side").innerHTML = `
+    <div class="card work"><h2>ワーク<small>考えて，ノートに書こう</small></h2><ol>${WORK.pheme.map(w => `<li>${esc(w)}</li>`).join("")}</ol></div>
+    <div class="card"><h2>投稿を選ぶ</h2>
+      <div class="ctl">
+        <label for="cEv">事件</label><select id="cEv">${PH.byEvent.map(b => `<option value="${b.event}" ${b.event === C.ev ? "selected" : ""}>${b.eventJa}</option>`).join("")}</select>
+        <label for="cRum">種類</label><select id="cRum"><option value="1" ${C.rum ? "selected" : ""}>うわさ（未確認情報）</option><option value="0" ${!C.rum ? "selected" : ""}>うわさ以外</option></select>
+        <label for="cId">投稿</label><select id="cId">${cascList().map((c, i) => `<option value="${c.id}" ${c.id === C.id ? "selected" : ""}>返信の多い順 ${i + 1}位（${c.size - 1}件）</option>`).join("")}</select>
+      </div>
+    </div>
+    <div class="card"><h2>この投稿の広がり</h2>
+      <div class="stats" id="cStats"></div>
+      <div class="ctl" style="margin-top:10px"><label for="cT">時間</label><input type="range" id="cT" min="0" max="1000" step="1" value="1000"></div>
+      <p class="readout" id="cTout"></p>
+      <div class="btns"><button class="btn solid" id="cPlay">はじめから再生</button></div>
+      <svg class="mini" id="cCum" style="margin-top:10px" viewBox="0 0 340 140" role="img" aria-label="返信の累積"></svg>
+    </div>
+    <div class="card"><h2>うわさは速く反応を集める？<small>全${PH.threads.toLocaleString()}投稿</small></h2>
+      <svg class="mini" id="cBars" viewBox="0 0 340 210" role="img" aria-label="返信がつくまでの時間"></svg>
+      <p class="note">返信がつくまでの時間（中央値）。全体では，うわさ ${PH.medRumor}分，うわさ以外 ${PH.medNon}分。</p>
+    </div>
+    <div class="card"><h2>データから分かること</h2>
+      <div class="stats">
+        ${statBox(Math.round(PH.within60 * 100) + "%", "返信のうち<br>最初の1時間以内")}
+        ${statBox(Math.round(PH.within10 * 100) + "%", "返信のうち<br>最初の10分以内")}
+        ${statBox(Math.round(PH.rtTop10 * 100) + "%", "上位10%の投稿が<br>集めたリツイート")}
+      </div>
+      <p class="note">反応は短い時間に，一部の投稿に集中する。これが「炎上」やデマの急拡散を生む構造。</p>
+    </div>
+    <div class="card"><h2>データについて</h2><p class="note" style="margin:0">${esc(PH.source)}</p></div>`;
+  $("#cEv").onchange = e => { C.ev = e.target.value; C.id = null; C.T = 1e9; renderCasc(); };
+  $("#cRum").onchange = e => { C.rum = +e.target.value; C.id = null; C.T = 1e9; renderCasc(); };
+  $("#cId").onchange = e => { C.id = +e.target.value; C.T = 1e9; renderCasc(); };
+  $("#cT").oninput = e => { C.T = sliderToMin(+e.target.value); drawCasc(); drawCascCharts(); };
+  $("#cPlay").onclick = () => {
+    clearInterval(C.timer); let v = 0;
+    C.timer = setInterval(() => {
+      v += 12; if (v >= 1000) { v = 1000; clearInterval(C.timer); C.timer = null; }
+      $("#cT").value = v; C.T = sliderToMin(v); drawCasc(); drawCascCharts();
+    }, 60);
+  };
+  $("#cT").value = minToSlider(Math.min(C.T, maxMin()));
+  S.t = d3.zoomIdentity; d3.select(cv).call(zoom.transform, d3.zoomIdentity);
+  drawCasc(); drawCascCharts();
+}
+
+/* 時間スライダーは対数目盛り（最初の数分の動きを見やすくする） */
+const maxMin = () => d3.max(curCasc().nodes, n => n.t) || 1;
+function sliderToMin(v) { return v >= 1000 ? 1e9 : Math.pow(10, v / 1000 * Math.log10(maxMin() + 1)) - 1; }
+function minToSlider(m) { return Math.round(Math.log10(m + 1) / Math.log10(maxMin() + 1) * 1000); }
+function cascColor(t) { const v = Math.min(1, Math.log10(t + 1) / 3); return d3.interpolateRgb(PAL[0], css("--other"))(v); }
+function cascXY() {
+  const c = curCasc(), ext = d3.max(c.nodes, n => Math.max(Math.abs(n.x), Math.abs(n.y))) || 1;
+  const s = Math.min(W, H - 90) / 2 / ext * 0.92;
+  return n => [W / 2 + n.x * s, H / 2 + 12 + n.y * s];
+}
+
+function drawCasc() {
+  if (S.tab !== "pheme") return;
+  const c = curCasc(), t = S.t, P = cascXY();
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  ctx.save(); ctx.translate(t.x, t.y); ctx.scale(t.k, t.k);
+  ctx.strokeStyle = css("--edge"); ctx.lineWidth = 1 / t.k; ctx.globalAlpha = .8; ctx.beginPath();
+  for (const [a, b] of c.links) {
+    if (c.nodes[b].t > C.T) continue;
+    const [x1, y1] = P(c.nodes[a]), [x2, y2] = P(c.nodes[b]);
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+  }
+  ctx.stroke(); ctx.globalAlpha = 1;
+  c.nodes.forEach((n, i) => {
+    if (n.t > C.T) return;
+    const [x, y] = P(n), r = (i === 0 ? 9 : 3.6) / Math.sqrt(t.k);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = i === 0 ? css("--ink") : cascColor(n.t); ctx.fill();
+    ctx.lineWidth = (i === C.hover ? 2 : .8) / t.k; ctx.strokeStyle = i === C.hover ? css("--hl") : css("--panel"); ctx.stroke();
+  });
+  ctx.restore();
+  $("#legend").innerHTML = `<span><i style="background:${css("--ink")}"></i>元の投稿</span><span><i style="background:${cascColor(1)}"></i>数分以内の返信</span><span><i style="background:${cascColor(100)}"></i>約1〜2時間後</span><span><i style="background:${cascColor(1000)}"></i>半日以上後</span>`;
+}
+
+function cascHover(ev) {
+  const c = curCasc(), P = cascXY(), r = cv.getBoundingClientRect();
+  const [mx, my] = S.t.invert([ev.clientX - r.left, ev.clientY - r.top]);
+  let best = -1, bd = 12 / S.t.k;
+  c.nodes.forEach((n, i) => {
+    if (n.t > C.T) return;
+    const [x, y] = P(n), dd = Math.hypot(x - mx, y - my);
+    if (dd < bd) { bd = dd; best = i; }
+  });
+  if (best !== C.hover) { C.hover = best; drawCasc(); }
+  if (best >= 0) {
+    const n = c.nodes[best], sr = $("#stage").getBoundingClientRect();
+    tip.innerHTML = best === 0 ? `<b>元の投稿</b>` : `<b>返信</b><br><span class="k">元投稿から</span> ${fmtMin(n.t)}<br><span class="k">深さ</span> ${n.d}（返信の返信の…）`;
+    tip.hidden = false;
+    tip.style.left = Math.min(ev.clientX - sr.left + 14, sr.width - 200) + "px"; tip.style.top = (ev.clientY - sr.top + 14) + "px";
+  } else tip.hidden = true;
+}
+
+function drawCascCharts() {
+  const c = curCasc(); if (!$("#cStats")) return;
+  const ts = c.nodes.slice(1).map(n => n.t).sort((a, b) => a - b), shown = ts.filter(x => x <= C.T).length;
+  $("#cStats").innerHTML = statBox(c.size - 1, "返信の数") + statBox(c.depth, "最大の深さ") + statBox(c.rt.toLocaleString(), "元投稿の<br>リツイート数") +
+    statBox(fmtMin(d3.median(ts) || 0), "返信までの時間<br>（中央値）") + statBox(Math.round(ts.filter(x => x <= 60).length / ts.length * 100) + "%", "最初の1時間<br>以内の返信") +
+    statBox(c.verified ? "はい" : "いいえ", "発信者は<br>認証済み");
+  $("#cTout").textContent = C.T >= 1e9 ? `すべて表示：返信 ${ts.length} 件` : `元投稿から ${fmtMin(C.T)}：返信 ${shown} 件（${Math.round(shown / ts.length * 100)}%）`;
+  // 返信の累積割合（横軸は対数）
+  let svg = d3.select("#cCum"); svg.selectAll("*").remove();
+  const x = d3.scaleLog().domain([1, Math.max(10, d3.max(ts) + 1)]).range([38, 330]), y = d3.scaleLinear().domain([0, 100]).range([108, 12]);
+  const tl = { 1: "1分", 10: "10分", 60: "1時間", 600: "10時間", 1440: "1日", 14400: "10日" };
+  svg.append("g").attr("transform", "translate(0,108)").call(d3.axisBottom(x).tickValues([1, 10, 60, 600, 1440, 14400].filter(v => v <= x.domain()[1])).tickFormat(v => tl[v]).tickSize(3));
+  svg.append("g").attr("transform", "translate(38,0)").call(d3.axisLeft(y).ticks(3).tickFormat(v => v + "%").tickSize(3));
+  svg.selectAll(".domain, .tick line").attr("stroke", css("--line"));
+  svg.append("path").attr("d", d3.line().curve(d3.curveStepAfter).x(p => x(p[0] + 1)).y(p => y(p[1]))(ts.map((v, i) => [v, (i + 1) / ts.length * 100])))
+    .attr("fill", "none").attr("stroke", PAL[1]).attr("stroke-width", 2.2);
+  if (C.T < 1e9) svg.append("line").attr("x1", x(C.T + 1)).attr("x2", x(C.T + 1)).attr("y1", 12).attr("y2", 108).attr("stroke", css("--ink2")).attr("stroke-dasharray", "3 3");
+  svg.append("text").attr("x", 330).attr("y", 136).attr("text-anchor", "end").text("元投稿からの時間");
+  svg.append("text").attr("x", 40).attr("y", 8).text("返信の累積割合");
+  // 事件ごとの「返信がつくまでの時間」
+  svg = d3.select("#cBars"); svg.selectAll("*").remove();
+  const be = PH.byEvent, xb = d3.scaleLinear().domain([0, d3.max(be, b => Math.max(b.medRumor, b.medNon))]).nice().range([128, 320]);
+  const yb = d3.scaleBand().domain(be.map(b => b.event)).range([8, 180]).padding(.25);
+  svg.append("g").attr("transform", "translate(0,180)").call(d3.axisBottom(xb).ticks(4).tickFormat(v => v + "分").tickSize(3));
+  svg.selectAll(".domain, .tick line").attr("stroke", css("--line"));
+  be.forEach(b => {
+    const y0 = yb(b.event), h = yb.bandwidth() / 2 - 1;
+    svg.append("text").attr("x", 124).attr("y", y0 + yb.bandwidth() / 2 + 3).attr("text-anchor", "end").text(b.eventJa.replace(/（.*）/, "")).style("font-size", "9px");
+    svg.append("rect").attr("x", 128).attr("y", y0).attr("width", xb(b.medRumor) - 128).attr("height", h).attr("rx", 2).attr("fill", css("--bad"));
+    svg.append("rect").attr("x", 128).attr("y", y0 + h + 2).attr("width", xb(b.medNon) - 128).attr("height", h).attr("rx", 2).attr("fill", PAL[0]);
+  });
+  svg.append("rect").attr("x", 112).attr("y", 194).attr("width", 10).attr("height", 8).attr("fill", css("--bad"));
+  svg.append("text").attr("x", 126).attr("y", 202).text("うわさ");
+  svg.append("rect").attr("x", 176).attr("y", 194).attr("width", 10).attr("height", 8).attr("fill", PAL[0]);
+  svg.append("text").attr("x", 190).attr("y", 202).text("うわさ以外");
+}
+
+/* ============================================================ 読み込み */
+function renderTabs() {
+  $("#tabs").innerHTML = TABS.map((t, i) => `<button role="tab" aria-selected="${t.key === S.tab}" data-k="${t.key}"><span class="num">${i + 1}</span>${t.label}</button>`).join("");
+  $("#tabs").querySelectorAll("button").forEach(b => b.onclick = () => { S.tab = b.dataset.k; try { history.replaceState(null, "", "#" + S.tab); } catch (e) {} load(); });
+}
+
+function load() {
+  renderTabs();
+  stopSpread(); if (labSim) labSim.stop(); clearInterval(labTimer); labTimer = null; clearInterval(C.timer); C.timer = null;
+  tip.hidden = true;
+  S.t = d3.zoomIdentity; d3.select(cv).call(zoom.transform, d3.zoomIdentity);
+  if (S.tab === "lab") { S.d = null; quad = null; resize(); renderLab(); return; }
+  if (S.tab === "pheme") { S.d = null; quad = null; resize(); renderCasc(); return; }
+  const d = prepare(DATA[dsKey()]);
+  S.d = d; S.sel = -1; S.hover = -1; S.removed = new Set();
+  const sOpt = sizeOptions(d).map(o => o[0]), cOpt = colorOptions(d).map(o => o[0]);
+  S.sizeBy = d.nodes[0].used != null ? "used" : d.directed ? "in" : (d.nodes[0].papers != null ? "papers" : "deg");
+  if (!sOpt.includes(S.sizeBy)) S.sizeBy = sOpt[0];
+  S.colorBy = d.nodes[0].lean ? "lean" : d.nodes[0].org ? "org" : d.nodes[0].seed !== undefined ? "seed" : "comm";
+  if (!cOpt.includes(S.colorBy)) S.colorBy = cOpt[0];
+  $("#capTitle").textContent = d.title;
+  $("#capSrc").textContent = d.edgeNote || "";
+  resize(); renderSide();
+}
+
+function themeChanged() { readPalette(); if (S.tab === "lab") drawLab(); else if (S.tab === "pheme") { drawCasc(); drawCascCharts(); } else { draw(); renderDegree(); drawSpread(); } }
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeChanged);
+new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+new ResizeObserver(() => { resize(); if (S.tab === "lab") drawLab(); if (S.tab === "pheme") drawCasc(); }).observe($("#stage"));
+const h = (location.hash || "").slice(1);
+if (TABS.some(t => t.key === h)) S.tab = h;
+load();
+</script>

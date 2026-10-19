@@ -1,0 +1,16 @@
+# 授業スライド関連（GitHub には置かない）
+slides/
+scripts/make_figures.py
+scripts/make_qr.py
+
+# 生成物・環境
+.venv/
+__pycache__/
+web/dist/
+data/networks.json
+
+# 外部の公開データセット（scripts/fetch_sns.sh で取得）
+data/raw/fb/
+data/raw/polblogs/
+data/raw/pheme/
+.DS_Store
