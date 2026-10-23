@@ -665,7 +665,7 @@ function renderLab() {
     <div class="card work"><h2>ワーク<small>考えて，ノートに書こう</small></h2><ol>
       <li>同じノード数・平均次数で「ランダム」と「スケールフリー」を作り，分布と最大次数を比べよう。</li>
       <li>スモールワールドで「つなぎ替え確率」を0→0.1にすると平均距離とクラスター係数はどう変わる？</li>
-      <li>エコーチェンバー実験：推薦の強さを上げると，異なる意見どうしのつながりはどうなる？</li></ol></div>
+      <li>エコーチェンバー実験：つなぎ直す確率 φ を上げると，異なる意見どうしのつながりはどうなる？</li></ol></div>
     <div class="card"><h2>A. ネットワークを作る</h2>
       <div class="ctl">
         <label for="gm">モデル</label><select id="gm"><option value="er">ランダム（ER）</option><option value="ws">スモールワールド（WS）</option><option value="ba" selected>スケールフリー（BA：優先的選択）</option></select>
@@ -678,9 +678,9 @@ function renderLab() {
       <div class="stats" id="gstats" style="margin-top:10px"></div>
       <svg class="mini" id="ghist" viewBox="0 0 340 162" role="img" aria-label="次数分布"></svg>
     </div>
-    <div class="card"><h2>B. 推薦とエコーチェンバー<small>Holme–Newman 型モデル</small></h2>
-      <p class="note" style="margin:0 0 6px">意見が違う相手と出会ったとき，確率 φ で「つながりを切って同じ意見の人をフォロー（推薦）」，残りは相手の意見に影響される。</p>
-      <div class="ctl"><label for="phi">推薦の強さ φ</label><input type="range" id="phi" min="0" max="1" step="0.05" value="0.8"></div>
+    <div class="card"><h2>B. つながりの選び方とエコーチェンバー<small>Holme–Newman 型モデル</small></h2>
+      <p class="note" style="margin:0 0 6px">意見が違う相手と出会ったとき，確率 φ で「つながりを切って同じ意見の人とつながり直す」，残りは相手の意見に影響される。推薦AIは同じ意見の人を見つけやすくし，φ を大きくする方向に働く。</p>
+      <div class="ctl"><label for="phi">つなぎ直す確率 φ</label><input type="range" id="phi" min="0" max="1" step="0.05" value="0.8"></div>
       <p class="readout" id="phiOut"></p>
       <div class="btns"><button class="btn solid" id="echoRun">始める</button><button class="btn ghost" id="echoStop">止める</button></div>
       <svg class="mini" id="echoChart" viewBox="0 0 340 140" role="img" aria-label="異なる意見のつながりの割合"></svg>
