@@ -886,7 +886,7 @@ function renderCasc() {
       <div class="stats">
         ${statBox(Math.round(PH.within60 * 100) + "%", "返信のうち<br>最初の1時間以内")}
         ${statBox(Math.round(PH.within10 * 100) + "%", "返信のうち<br>最初の10分以内")}
-        ${statBox(Math.round(PH.rtTop10 * 100) + "%", "上位10%の投稿が<br>集めたリツイート")}
+        ${statBox(Math.round(PH.rtTop10 * 100) + "%", "上位10%の投稿が<br>集めたリポスト")}
       </div>
       <p class="note">反応は短い時間に，一部の投稿に集中する。これが「炎上」やデマの急拡散を生む構造。</p>
     </div>
@@ -962,7 +962,7 @@ function cascHover(ev) {
 function drawCascCharts() {
   const c = curCasc(); if (!$("#cStats")) return;
   const ts = c.nodes.slice(1).map(n => n.t).sort((a, b) => a - b), shown = ts.filter(x => x <= C.T).length;
-  $("#cStats").innerHTML = statBox(c.size - 1, "返信の数") + statBox(c.depth, "最大の深さ") + statBox(c.rt.toLocaleString(), "元投稿の<br>リツイート数") +
+  $("#cStats").innerHTML = statBox(c.size - 1, "返信の数") + statBox(c.depth, "最大の深さ") + statBox(c.rt.toLocaleString(), "元投稿のリポスト数<br>（旧リツイート）") +
     statBox(fmtMin(d3.median(ts) || 0), "返信までの時間<br>（中央値）") + statBox(Math.round(ts.filter(x => x <= 60).length / ts.length * 100) + "%", "最初の1時間<br>以内の返信") +
     statBox(c.verified ? "はい" : "いいえ", "発信者は<br>認証済み");
   $("#cTout").textContent = C.T >= 1e9 ? `すべて表示：返信 ${ts.length} 件` : `元投稿から ${fmtMin(C.T)}：返信 ${shown} 件（${Math.round(shown / ts.length * 100)}%）`;
