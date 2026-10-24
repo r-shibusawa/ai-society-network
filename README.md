@@ -13,8 +13,8 @@
 | 3 AI開発組織のつながり | 同上を開発組織単位に集約 |
 | 4 AIソフトウェア依存 | PyPI JSON API。主要AIライブラリ40個の依存関係（2026年10月取得） |
 | 5 AI研究の国際共著 | OpenAlex。分野「人工知能」の論文（2014・2019・2024年，各5,000本の無作為抽出） |
-| 6 SNSの政治的分断 | Adamic & Glance (2005)。2004年アメリカ大統領選挙期の政治ブログのリンク |
-| 7 うわさの広がり方 | PHEME（Zubiaga et al., 2016）。Twitter上の5事件における，うわさとそれ以外の投稿への返信の連鎖 |
+| 6 政治ブログの分断 | Adamic & Glance (2005)。2004年アメリカ大統領選挙期の政治ブログのリンク |
+| 7 うわさの広がり方 | PHEME のうわさ／うわさ以外データ（Zubiaga, Liakata & Procter, 2017）を独自に集計。Twitter上の5事件における，うわさとそれ以外の投稿への返信の連鎖 |
 | 8 実験室 | ランダム・スモールワールド・スケールフリーのモデル生成，推薦とエコーチェンバーのシミュレーション |
 
 各タブで，次数・媒介中心性・PageRank などの指標の確認，ノードの削除（故障・攻撃）実験，情報・影響の広がりの実験ができます。
@@ -37,5 +37,5 @@ scripts/fetch_sns.sh                         # Facebook・政治ブログ・PHEM
 
 - McAuley, J. & Leskovec, J. (2012). Learning to Discover Social Circles in Ego Networks. NIPS.
 - Adamic, L. A. & Glance, N. (2005). The political blogosphere and the 2004 U.S. election: divided they blog. LinkKDD.
-- Zubiaga, A., Liakata, M., Procter, R., Wong Sak Hoi, G. & Tolmie, P. (2016). Analysing How People Orient to and Spread Rumours in Social Media by Looking at Conversational Threads. PLoS ONE 11(3).
+- Zubiaga, A., Liakata, M. & Procter, R. (2017). Exploiting Context for Rumour Detection in Social Media. SocInfo 2017, LNCS 10539.
 - Hugging Face Hub API ／ PyPI JSON API ／ OpenAlex（Priem, J., Piwowar, H. & Orr, R., 2022）

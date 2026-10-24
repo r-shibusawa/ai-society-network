@@ -132,7 +132,7 @@ footer { color: var(--muted); font-size: .74rem; margin-top: 18px; }
     <aside class="side" id="side"></aside>
   </div>
   <footer>
-    データ：SNAP ego-Facebook (McAuley &amp; Leskovec 2012)／Hugging Face Hub API・PyPI JSON API・OpenAlex（2026年10月取得）／Adamic &amp; Glance (2005)／PHEME (Zubiaga et al. 2016)。ドラッグで移動，ホイール・ピンチで拡大縮小，ノードをクリックで詳細表示。
+    データ：SNAP ego-Facebook (McAuley &amp; Leskovec 2012)／Hugging Face Hub API・PyPI JSON API・OpenAlex（2026年10月取得）／Adamic &amp; Glance (2005)／PHEME (Zubiaga, Liakata &amp; Procter 2017) の独自集計。ドラッグで移動，ホイール・ピンチで拡大縮小，ノードをクリックで詳細表示。
   </footer>
 </div>
 
@@ -157,7 +157,7 @@ const TABS = [
   { key: "hf_orgs", label: "AI開発組織のつながり" },
   { key: "pypi", label: "AIソフトウェア依存" },
   { key: "collab", label: "AI研究の国際共著" },
-  { key: "polblogs", label: "SNSの政治的分断" },
+  { key: "polblogs", label: "政治ブログの分断" },
   { key: "pheme", label: "うわさの広がり方" },
   { key: "lab", label: "実験室" },
 ];
@@ -242,7 +242,7 @@ function sizeOptions(d) {
   if (d.nodes[0].papers != null) o.unshift(["papers", "論文数"]);
   if (d.nodes[0].used != null) o.splice(1, 0, ["used", "使われた派生モデル数"]);
   if (d.nodes[0].strength != null) o.push(["strength", "重み付き次数"]);
-  if (d.nodes[0].affected != null) o.push(["affected", "壊れたら影響を受ける数"]);
+  if (d.nodes[0].affected != null) o.push(["affected", "影響が及びうる数"]);
   if (d.nodes[0].downloads !== undefined) o.push(["downloads", "ダウンロード数"]);
   return o;
 }
@@ -421,7 +421,7 @@ function tipLines(n) {
   const d = S.d, L = [["次数", n.deg]];
   if (d.directed) L.push(["入次数／出次数", `${n.in}／${n.out}`]);
   if (n.papers != null) L.push(["論文数", n.papers]);
-  if (n.affected != null) L.push(["壊れたら影響", `${n.affected} ライブラリ`]);
+  if (n.affected != null) L.push(["影響が及びうる数", `${n.affected} ライブラリ`]);
   L.push(["媒介中心性", fmt(n.btw)]);
   return L;
 }
@@ -533,7 +533,7 @@ function renderDetail() {
   if (n.task) rows.push(["タスク", n.task]);
   if (n.downloads != null) rows.push(["ダウンロード数", n.downloads.toLocaleString()]);
   if (n.created) rows.push(["公開日", n.created]);
-  if (n.affected != null) rows.push(["壊れたら影響", `${n.affected} ライブラリ`]);
+  if (n.affected != null) rows.push(["影響が及びうる数（間接依存を含む）", `${n.affected} ライブラリ`]);
   if (n.version) rows.push(["バージョン", n.version]);
   const rank = d.nodes.filter(x => (x[S.sizeBy] || 0) > (n[S.sizeBy] || 0)).length + 1;
   const nb = d.adj[S.sel].map(i => d.nodes[i]).sort((a, b) => b.deg - a.deg);
@@ -679,7 +679,7 @@ function renderLab() {
       <svg class="mini" id="ghist" viewBox="0 0 340 162" role="img" aria-label="次数分布"></svg>
     </div>
     <div class="card"><h2>B. つながりの選び方とエコーチェンバー<small>Holme–Newman 型モデル</small></h2>
-      <p class="note" style="margin:0 0 6px">意見が違う相手と出会ったとき，確率 φ で「つながりを切って同じ意見の人とつながり直す」，残りは相手の意見に影響される。推薦AIは同じ意見の人を見つけやすくし，φ を大きくする方向に働く。</p>
+      <p class="note" style="margin:0 0 6px">意見が違う相手と出会ったとき，確率 φ で「つながりを切って同じ意見の人とつながり直す」，残りは相手の意見に影響される。φ はモデルで仮定した「つなぎ直しやすさ」で，推薦AIが現実に φ をどれだけ変えるかは，この実験だけでは分からない。</p>
       <div class="ctl"><label for="phi">つなぎ直す確率 φ</label><input type="range" id="phi" min="0" max="1" step="0.05" value="0.8"></div>
       <p class="readout" id="phiOut"></p>
       <div class="btns"><button class="btn solid" id="echoRun">始める</button><button class="btn ghost" id="echoStop">止める</button></div>
@@ -880,7 +880,7 @@ function renderCasc() {
         ${statBox(Math.round(PH.within10 * 100) + "%", "返信のうち<br>最初の10分以内")}
         ${statBox(Math.round(PH.rtTop10 * 100) + "%", "上位10%の投稿が<br>集めたリポスト")}
       </div>
-      <p class="note">反応は短い時間に，一部の投稿に集中する。これが「炎上」や，うわさ・デマの急拡散を生む構造。</p>
+      <p class="note">反応は短い時間に，一部の投稿に集中する。炎上や急な拡散にも共通する構造（返信には賛同・質問・訂正も含む）。</p>
     </div>
     <div class="card"><h2>データについて</h2><p class="note" style="margin:0">${esc(PH.source)}</p></div>`;
   $("#cEv").onchange = e => { C.ev = e.target.value; C.id = null; C.T = 1e9; renderCasc(); };

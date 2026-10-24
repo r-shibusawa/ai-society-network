@@ -364,7 +364,7 @@ for k, (th, s0, T, depth, tmin) in enumerate(pick):
 S = pd.DataFrame(summary)
 rep = df[df.is_source_tweet == 0]
 OUT["pheme"] = {
-    "source": "PHEME（Zubiaga et al., 2016）。Twitter 上の5つの大事件で，うわさ（未確認情報）とそれ以外の投稿への返信の連鎖。匿名化して構造と時刻のみ使用",
+    "source": "PHEME のうわさ／うわさ以外データ（Zubiaga, Liakata & Procter, 2017）をこの授業で独自に集計。Twitter 上の5つの大事件で，うわさ（未確認情報）とそれ以外の投稿への返信の連鎖。匿名化して構造と時刻のみ使用",
     "cascades": casc_out,
     "byEvent": [{"event": ev, "eventJa": EVENT_JA[ev],
                  "medRumor": round(float(rep[(rep.event == ev) & (rep.is_rumor == 1)].t.median()), 1),
