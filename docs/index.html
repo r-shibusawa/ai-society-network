@@ -537,12 +537,6 @@ function renderSide() {
     <div class="card"><h2>つながりの数の分布<small>両対数グラフ</small></h2><svg class="mini" id="ddist" viewBox="0 0 340 182" role="img" aria-label="次数分布"></svg>
       <p class="note">横軸：つながりの数 k，縦軸：k 以上の割合。直線に近いほど「ごく一部のハブに集中」（べき乗則）。</p></div>
     <div class="card ex" id="ex1"><h2>実験1：ノードを取り除く<small>故障・攻撃への強さ</small></h2>
-      <div class="pred"><b>① まず予想：</b>${d.nodes[0].circle ? "「あなた」（最大のハブ）" : "最大のハブ"}を取り除くと？
-        <label><input type="radio" name="pred" value="ほとんど変わらない"> ほとんど変わらない</label>
-        <label><input type="radio" name="pred" value="つながったままだが，遠回りが増える"> つながったままだが，遠回りが増える</label>
-        <label><input type="radio" name="pred" value="いくつかの塊に分かれる"> いくつかの塊に分かれる</label>
-      </div>
-      <p class="note" style="margin:6px 0"><b>② 実験：</b>ボタンを押す　<b>③ 結果：</b>下の「前 → 後」を見て，予想と比べよう</p>
       <div class="btns">
         <button class="btn" id="rmHub">ハブを1つ削除</button>
         <button class="btn" id="rmRand">ランダムに1つ削除</button>
@@ -552,7 +546,7 @@ function renderSide() {
       <p class="readout" id="giantOut"></p>
       <div class="btns"><button class="btn solid" id="robRun">自動実験：ランダム vs 狙い撃ち</button></div>
       <svg class="mini" id="robChart" viewBox="0 0 340 186" role="img" aria-label="頑健性の比較"></svg>
-      <p class="note">ランダムは10回試した平均。狙い撃ちは最初の次数が大きい順に取り除く（途中で次数を計算し直さない）。つながりの実験で，${d.directed ? "実際にソフトやモデルが動かなくなるかとは別。" : "現実に何が起こるかとは別。"}</p>
+      <p class="note"><b>グラフの見方</b>　点を少しずつ取り除き，そのたびに「互いにたどり着ける最大の塊」が元の全体の何%残っているかを描く。線が早く下がるほど，その取り除き方に弱い。青＝ランダムに取り除く（10回の平均），赤＝つながりの多い点から順に取り除く。赤は最初の次数が大きい順（途中で計算し直さない）。つながりの実験で，${d.directed ? "実際にソフトやモデルが動かなくなるかとは別。" : "現実に何が起こるかとは別。"}</p>
     </div>
     <div class="card ex" id="ex2"><h2>実験2：${d.directed ? "影響の伝わり方" : "情報の広がり方"}<small>${d.directed ? "元が壊れると，それを使う側へ" : "隣の人へ確率的に伝わる"}</small></h2>
       <div class="ctl">
@@ -607,7 +601,6 @@ function renderSide() {
   $("#rmRand").onclick = () => removeBy("rand", 1);
   $("#rmHub5").onclick = () => removeBy("hub", Math.max(1, Math.round(d.nodes.length * .05)));
   $("#rmReset").onclick = () => { S.removed.clear(); updateGiant(); draw(); };
-  side.querySelectorAll('input[name="pred"]').forEach(r => { r.checked = r.value === S.pred; r.onchange = () => { S.pred = r.value; updateGiant(); }; });
   if ($("#crossOnly")) $("#crossOnly").onchange = e => { S.crossOnly = e.target.checked; draw(); };
   $("#robRun").onclick = runRobust;
   $("#spHub").onclick = () => startSpread(hubIndex());
@@ -918,8 +911,7 @@ function updateGiant() {
   const diff = (after.giant - before.giant) * 100;
   el.innerHTML = `削除：${S.removed.size} ノード（${(S.removed.size / d.nodes.length * 100).toFixed(1)}%）<br>` +
     `最大の塊：${(before.giant * 100).toFixed(1)}% → <b>${(after.giant * 100).toFixed(1)}%</b>（${diff >= 0 ? "+" : ""}${diff.toFixed(1)} ポイント）<br>` +
-    `塊の数：${before.count} → <b>${after.count}</b>` +
-    (S.removed.size && S.pred ? `<br>あなたの予想：「${esc(S.pred)}」。結果と同じだった？ 違ったら，なぜだろう？` : "");
+    `塊の数：${before.count} → <b>${after.count}</b>`;
   drawCmp();
 }
 function runRobust() {
@@ -940,8 +932,8 @@ function drawRobust(res) {
   svg.append("g").attr("transform", "translate(0,150)").call(d3.axisBottom(x).ticks(5).tickFormat(v => v + "%").tickSize(3));
   svg.append("g").attr("transform", "translate(38,0)").call(d3.axisLeft(y).ticks(4).tickFormat(v => v + "%").tickSize(3));
   svg.selectAll(".domain, .tick line").attr("stroke", css("--line"));
-  svg.append("text").attr("x", 330).attr("y", 184).attr("text-anchor", "end").text("取り除いた割合");
-  svg.append("text").attr("x", 40).attr("y", 8).text("最大連結成分");
+  svg.append("text").attr("x", 330).attr("y", 184).attr("text-anchor", "end").text("横軸：取り除いた点の割合");
+  svg.append("text").attr("x", 40).attr("y", 8).text("縦軸：残っている最大の塊");
   if (!res) { svg.append("text").attr("x", 184).attr("y", 85).attr("text-anchor", "middle").text("ボタンを押すと比較グラフを描きます"); return; }
   const line = d3.line().x((_, i) => x(res.F[i] * 100)).y(v => y(v * 100));
   [[res.rnd, PAL[0], "ランダムに故障"], [res.att, css("--bad"), "ハブを狙い撃ち"]].forEach(([v, c, l], k) => {
