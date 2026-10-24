@@ -149,7 +149,7 @@ footer { color: var(--muted); font-size: .74rem; margin-top: 18px; }
     </div>
     <div class="card detail" id="detail"></div>
     <div class="card cmp" id="cmp" hidden>
-      <h2>取り除く前と後を並べて比べる<small>右は塊ごとに色分け（青＝最大の塊）</small></h2>
+      <h2>取り除く前と後を並べて比べる<small>右はまとまりごとに色分け（青＝最大のまとまり）</small></h2>
       <div class="cmpgrid">
         <div><canvas id="cmpA"></canvas><p class="readout" id="cmpAOut"></p></div>
         <div><canvas id="cmpB"></canvas><p class="readout" id="cmpBOut"></p></div>
@@ -222,7 +222,7 @@ const GLOSS = [
   ["クラスター係数", "自分の友達同士も友達である割合。「友達の友達は友達」の度合い。"],
   ["平均距離", "あらゆる2つのノードの組み合わせについて最短経路の長さ（何ステップで届くか）を求め，平均したもの。小さいほど「世間は狭い」。"],
   ["コミュニティ", "内部では密に，外部とは疎につながったグループ。ルーヴァン法で検出。"],
-  ["最大連結成分", "互いにたどり着けるノードの集まりのうち最大のもの。ネットワークがどれだけ一体になっているかの指標。"],
+  ["最大のまとまり（最大連結成分）", "線をたどって互いに行き来できるノードの集まりのうち，いちばん大きいもの。ネットワークがどれだけ一体になっているかの指標。"],
 ];
 
 /* ============================================================ ネットワークの準備 */
@@ -249,7 +249,7 @@ function giantShare(d, removed) {
   }
   return best / n;
 }
-// 取り除いた後の「塊」（連結成分）の数と最大の塊の割合
+// 取り除いた後の「まとまり」（連結成分）の数と最大のまとまりの割合
 function components(d, removed) {
   const n = d.nodes.length, seen = new Uint8Array(n); let best = 0, count = 0;
   for (let i = 0; i < n; i++) {
@@ -546,7 +546,7 @@ function renderSide() {
       <p class="readout" id="giantOut"></p>
       <div class="btns"><button class="btn solid" id="robRun">自動実験：ランダム vs 狙い撃ち</button></div>
       <svg class="mini" id="robChart" viewBox="0 0 340 186" role="img" aria-label="頑健性の比較"></svg>
-      <p class="note"><b>グラフの見方</b>　点を少しずつ取り除き，そのたびに「互いにたどり着ける最大の塊」が元の全体の何%残っているかを描く。線が早く下がるほど，その取り除き方に弱い。青＝ランダムに取り除く（10回の平均），赤＝つながりの多い点から順に取り除く。赤は最初の次数が大きい順（途中で計算し直さない）。つながりの実験で，${d.directed ? "実際にソフトやモデルが動かなくなるかとは別。" : "現実に何が起こるかとは別。"}</p>
+      <p class="note"><b>まとまり</b>＝線をたどって互いに行き来できる点の集まり。点を取り除くと，ネットワークはいくつかのまとまりに分かれる。<br><b>グラフの見方</b>　点を少しずつ取り除き，そのたびに「いちばん大きなまとまり」に元の点の何%が入っているかを描く。100%＝全体がひとつながり，低いほどバラバラ。線が早く下がるほど，その取り除き方に弱い。青＝ランダムに取り除く（10回の平均），赤＝つながりの多い点から順に取り除く。赤は最初の次数が大きい順（途中で計算し直さない）。つながりの実験で，${d.directed ? "実際にソフトやモデルが動かなくなるかとは別。" : "現実に何が起こるかとは別。"}</p>
     </div>
     <div class="card ex" id="ex2"><h2>実験2：${d.directed ? "影響の伝わり方" : "情報の広がり方"}<small>${d.directed ? "元が壊れると，それを使う側へ" : "隣の人へ確率的に伝わる"}</small></h2>
       <div class="ctl">
@@ -693,7 +693,7 @@ function compIds(d, removed) {
   }
   return { id, sizes };
 }
-// 最大の塊の中の平均距離（向きは無視）。大きな網では一部の点から測った推定値
+// 最大のまとまりの中の平均距離（向きは無視）。大きな網では一部の点から測った推定値
 function avgDistGiant(d, removed, comp) {
   const big = comp.sizes.indexOf(Math.max(...comp.sizes));
   const members = d.nodes.map((_, i) => i).filter(i => comp.id[i] === big);
@@ -747,8 +747,8 @@ function drawCmp() {
   const n = d.nodes.length, single = after.sizes.filter(x => x === 1).length;
   const dA = d._dist0 ?? (d._dist0 = avgDistGiant(d, new Set(), before)), dB = avgDistGiant(d, S.removed, after);
   const big = sz => (Math.max(...sz) / n * 100).toFixed(1);
-  $("#cmpAOut").innerHTML = `<b>前</b>　点 ${n}　塊 ${before.sizes.length}　最大の塊 ${big(before.sizes)}%<br>最大の塊の中の平均距離 ${dA ? dA.toFixed(2) : "—"}`;
-  $("#cmpBOut").innerHTML = `<b>後</b>　点 ${n - S.removed.size}（×＝取り除いた点）　塊 ${after.sizes.length}（うち1点だけ ${single}）　最大の塊 <b>${big(after.sizes)}%</b><br>最大の塊の中の平均距離 <b>${dB ? dB.toFixed(2) : "—"}</b>` +
+  $("#cmpAOut").innerHTML = `<b>前</b>　点 ${n}　まとまり ${before.sizes.length}　最大のまとまり ${big(before.sizes)}%<br>最大のまとまりの中の平均距離 ${dA ? dA.toFixed(2) : "—"}`;
+  $("#cmpBOut").innerHTML = `<b>後</b>　点 ${n - S.removed.size}（×＝取り除いた点）　まとまり ${after.sizes.length}（うち1点だけ ${single}）　最大のまとまり <b>${big(after.sizes)}%</b><br>最大のまとまりの中の平均距離 <b>${dB ? dB.toFixed(2) : "—"}</b>` +
     (dA && dB ? `（${dB > dA + .005 ? "遠回りが増えた" : "ほぼ同じ"}）` : "");
 }
 
@@ -910,8 +910,8 @@ function updateGiant() {
   const d = S.d, before = d._comp0 || (d._comp0 = components(d, new Set())), after = components(d, S.removed);
   const diff = (after.giant - before.giant) * 100;
   el.innerHTML = `削除：${S.removed.size} ノード（${(S.removed.size / d.nodes.length * 100).toFixed(1)}%）<br>` +
-    `最大の塊：${(before.giant * 100).toFixed(1)}% → <b>${(after.giant * 100).toFixed(1)}%</b>（${diff >= 0 ? "+" : ""}${diff.toFixed(1)} ポイント）<br>` +
-    `塊の数：${before.count} → <b>${after.count}</b>`;
+    `最大のまとまり：${(before.giant * 100).toFixed(1)}% → <b>${(after.giant * 100).toFixed(1)}%</b>（${diff >= 0 ? "+" : ""}${diff.toFixed(1)} ポイント）<br>` +
+    `まとまりの数：${before.count} → <b>${after.count}</b>`;
   drawCmp();
 }
 function runRobust() {
@@ -933,7 +933,7 @@ function drawRobust(res) {
   svg.append("g").attr("transform", "translate(38,0)").call(d3.axisLeft(y).ticks(4).tickFormat(v => v + "%").tickSize(3));
   svg.selectAll(".domain, .tick line").attr("stroke", css("--line"));
   svg.append("text").attr("x", 330).attr("y", 184).attr("text-anchor", "end").text("横軸：取り除いた点の割合");
-  svg.append("text").attr("x", 40).attr("y", 8).text("縦軸：残っている最大の塊");
+  svg.append("text").attr("x", 40).attr("y", 8).text("縦軸：残っている最大のまとまり");
   if (!res) { svg.append("text").attr("x", 184).attr("y", 85).attr("text-anchor", "middle").text("ボタンを押すと比較グラフを描きます"); return; }
   const line = d3.line().x((_, i) => x(res.F[i] * 100)).y(v => y(v * 100));
   [[res.rnd, PAL[0], "ランダムに故障"], [res.att, css("--bad"), "ハブを狙い撃ち"]].forEach(([v, c, l], k) => {
@@ -999,7 +999,7 @@ function renderLab() {
       <p class="note" style="margin:0 0 6px">A の「ノード数」「平均次数」で，ランダム・スモールワールド（つなぎ替え確率 0.1）・スケールフリー（優先的選択）を同時に作る。</p>
       <div class="btns"><button class="btn solid" id="cmpMake">3つ並べて作る</button><button class="btn" id="cmpHub">それぞれハブ上位5%を取り除く</button><button class="btn ghost" id="cmpReset">元に戻す</button></div>
       <table class="rank" id="cmpTable" style="margin-top:8px"></table>
-      <p class="note">取り除いた後の数値は，最大の塊に残った点の割合。ランダムに5%取り除いた場合は10回の平均。</p>
+      <p class="note">取り除いた後の数値は，最大のまとまりに残った点の割合。ランダムに5%取り除いた場合は10回の平均。</p>
     </div>
     <div class="card"><h2>A. ネットワークを作る</h2>
       <div class="ctl">
@@ -1174,7 +1174,7 @@ function drawCompare() {
     ctx.fillStyle = css("--ink"); ctx.font = `700 14px ${css("--f-body")}`; ctx.textAlign = "center"; ctx.textBaseline = "top";
     ctx.fillText(P.name, cx, 84);
     ctx.font = `500 12px ${css("--f-mono")}`; ctx.fillStyle = css("--ink2");
-    ctx.fillText(LAB.cut ? `最大の塊 ${(P.giant0 * 100).toFixed(0)}% → ${(P.giantHub * 100).toFixed(0)}%` : `平均距離 ${P.met.L.toFixed(2)}　C ${P.met.C.toFixed(2)}`, cx, 104);
+    ctx.fillText(LAB.cut ? `最大のまとまり ${(P.giant0 * 100).toFixed(0)}% → ${(P.giantHub * 100).toFixed(0)}%` : `平均距離 ${P.met.L.toFixed(2)}　C ${P.met.C.toFixed(2)}`, cx, 104);
   });
   $("#legend").innerHTML = `<span><i style="background:${css("--bad")}"></i>ハブ上位5%</span><span>大きさ：次数</span>${LAB.cut ? "<span>ハブを取り除いた状態</span>" : ""}`;
 }
