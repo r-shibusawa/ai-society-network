@@ -935,8 +935,18 @@ function updateGiant() {
   const d = S.d, before = d._comp0 || (d._comp0 = components(d, new Set())), after = components(d, S.removed);
   const diff = (after.giant - before.giant) * 100;
   // 最大のまとまりから切り離された点（図では赤い輪で示す）
-  const ci = compIds(d, S.removed), big = ci.sizes.indexOf(Math.max(0, ...ci.sizes));
-  S.cut = new Set(d.nodes.map((_, i) => i).filter(i => !S.removed.has(i) && ci.id[i] !== big));
+  // 「切り離された点」＝取り除いた点がいた元のまとまりの中で，そのまとまりの残りの最大部分から外れた点
+  // （最初から別々のまとまりにいる点は含めない）
+  const c0 = d._ci0 || (d._ci0 = compIds(d, new Set())), ci = compIds(d, S.removed);
+  const touched = new Set([...S.removed].map(i => c0.id[i]));
+  const bestPart = new Map();
+  for (const oc of touched) {
+    const cnt = new Map();
+    d.nodes.forEach((_, i) => { if (c0.id[i] === oc && !S.removed.has(i)) cnt.set(ci.id[i], (cnt.get(ci.id[i]) || 0) + 1); });
+    let best = -1, bs = -1; for (const [c, k] of cnt) if (k > bs) { bs = k; best = c; }
+    bestPart.set(oc, best);
+  }
+  S.cut = new Set(d.nodes.map((_, i) => i).filter(i => !S.removed.has(i) && touched.has(c0.id[i]) && ci.id[i] !== bestPart.get(c0.id[i])));
   const names = ids => ids.slice(0, 8).map(i => esc(d.nodes[i].label)).join("，") + (ids.length > 8 ? ` ほか${ids.length - 8}` : "");
   const rem = [...S.removed], cut = [...S.cut];
   el.innerHTML = S.removed.size ? `取り除いた点：${names(rem)}（${rem.length}）<br>` +
