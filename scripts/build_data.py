@@ -293,7 +293,7 @@ OUT["polblogs"] = {
     "nodes": nodes, "links": links, "stats": stats,
 }
 
-# ------------------------------------------------------------------ 6. Twitter のデマ（うわさ）の広がり方
+# ------------------------------------------------------------------ 6. Twitter のうわさ（未確認情報）の広がり方
 import glob
 import pandas as pd
 df = pd.concat([pd.read_csv(f, low_memory=False) for f in sorted(glob.glob("data/raw/pheme/tweets_*.csv"))])

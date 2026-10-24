@@ -166,7 +166,7 @@ const TABS = [
   { key: "pypi", label: "AIソフトウェア依存" },
   { key: "collab", label: "AI研究の国際共著" },
   { key: "polblogs", label: "SNSの政治的分断" },
-  { key: "pheme", label: "デマの広がり方" },
+  { key: "pheme", label: "うわさの広がり方" },
   { key: "lab", label: "実験室" },
 ];
 
@@ -851,7 +851,7 @@ function drawEcho(h) {
   svg.append("text").attr("x", 330).attr("y", 138).attr("text-anchor", "end").text("時間");
 }
 
-/* ============================================================ デマの広がり方（PHEME の返信カスケード） */
+/* ============================================================ うわさの広がり方（PHEME の返信カスケード） */
 const C = { ev: "sydneysiege", rum: 1, id: null, T: 1e9, timer: null, hover: -1 };
 const PH = DATA.pheme;
 function cascList() { return PH.cascades.filter(c => c.event === C.ev && c.rumor === C.rum); }
@@ -859,7 +859,7 @@ function curCasc() { return PH.cascades.find(c => c.id === C.id) || cascList()[0
 const fmtMin = m => m < 60 ? `${Math.round(m)}分` : m < 1440 ? `${(m / 60).toFixed(1)}時間` : `${(m / 1440).toFixed(1)}日`;
 
 function renderCasc() {
-  $("#capTitle").textContent = "デマ（うわさ）の広がり方：Twitter の返信の連鎖";
+  $("#capTitle").textContent = "うわさ（未確認情報）の広がり方：Twitter の返信の連鎖";
   $("#capSrc").textContent = "中心＝元の投稿，外側ほど「返信への返信」。色が濃いほど早い時間の反応";
   const c0 = curCasc(); C.id = c0.id;
   $("#side").innerHTML = `
@@ -888,7 +888,7 @@ function renderCasc() {
         ${statBox(Math.round(PH.within10 * 100) + "%", "返信のうち<br>最初の10分以内")}
         ${statBox(Math.round(PH.rtTop10 * 100) + "%", "上位10%の投稿が<br>集めたリポスト")}
       </div>
-      <p class="note">反応は短い時間に，一部の投稿に集中する。これが「炎上」やデマの急拡散を生む構造。</p>
+      <p class="note">反応は短い時間に，一部の投稿に集中する。これが「炎上」や，うわさ・デマの急拡散を生む構造。</p>
     </div>
     <div class="card"><h2>データについて</h2><p class="note" style="margin:0">${esc(PH.source)}</p></div>`;
   $("#cEv").onchange = e => { C.ev = e.target.value; C.id = null; C.T = 1e9; renderCasc(); };
