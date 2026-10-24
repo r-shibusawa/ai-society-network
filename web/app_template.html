@@ -182,7 +182,7 @@ const WORK = {
   fb: ["色（自動で見つけたグループ）は，どんな友達の集まり（中学・高校・大学・バイト先など）にあたりそう？",
        "実験1でまず結果を予想してから，「ハブを1つ削除」で「あなた」を取り除こう。予想と同じだった？",
        "「大きさ＝媒介中心性」にして，「あなた」の次に大きい友達を探そう。その人はどんな役割？",
-       "「色＝本人が作った友達リスト」に切り替え，自動で見つけたグループと比べよう。"],
+       "「色＝本人が分けた友達グループ」に切り替え，自動で見つけたグループと比べよう。"],
   hf_models: ["派生モデル数（入次数）が多い基盤モデルの上位3つは？ 開発元はどこ？",
               "ひとつの基盤モデルに問題（バグ・偏り・ライセンス違反）があったら？「影響の伝わり方」で試そう。",
               "ネットワークが「星形」の集まりになっているのはなぜ？"],
@@ -280,7 +280,7 @@ function sizeOptions(d) {
 function colorOptions(d) {
   const o = [["comm", "コミュニティ"]];
   if (d.nodes[0].lean) o.unshift(["lean", "政治的立場"]);
-  if (d.nodes[0].circle) o.push(["circle", "本人が作った友達リスト"]);
+  if (d.nodes[0].circle) o.push(["circle", "本人が分けた友達グループ"]);
   if (d.nodes[0].org) o.push(["org", "開発組織"]);
   if (d.nodes[0].seed !== undefined) o.push(["seed", "主要AIライブラリか"]);
   return o;
@@ -621,7 +621,7 @@ function renderDetail() {
   if (n.papers != null) rows.push(["論文数（抽出中）", n.papers]);
   if (n.strength != null) rows.push(["重み付き次数", n.strength]);
   rows.push(["媒介中心性", fmt(n.btw, 4)], ["PageRank", fmt(n.pr, 4)], ["クラスター係数", fmt(n.cc)], ["コミュニティ", `グループ${n.comm + 1}`]);
-  if (n.circle) rows.push(["友達リスト", n.circle]);
+  if (n.circle) rows.push(["本人が分けたグループ", n.circle]);
   if (n.lean) rows.push(["政治的立場", n.lean]);
   if (n.org) rows.push(["開発組織", n.org]);
   if (n.task) rows.push(["タスク", n.task]);
