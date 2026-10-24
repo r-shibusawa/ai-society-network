@@ -186,7 +186,7 @@ const WORK = {
        "実験1でまず結果を予想してから，「ハブを1つ削除」で「あなた」を取り除こう。予想と同じだった？",
        "「大きさ＝媒介中心性」にして，「あなた」の次に大きい友達を探そう。その人はどんな役割？",
        "「色＝本人が分けた友達グループ」に切り替え，自動で見つけたグループと比べよう。"],
-  hf_models: ["派生モデル数（入次数）が多い基盤モデルの上位3つは？ 開発元はどこ？",
+  hf_models: ["派生モデル数（入次数）が多い基盤モデルの上位3つは？ 開発元はどこ？（ランキングの（ ）内や，モデルをクリックした「開発組織」で分かる）",
               "ひとつの基盤モデルに問題（バグ・偏り・ライセンス違反）があったら？「影響の伝わり方」で試そう。",
               "ネットワークが「星形」の集まりになっているのはなぜ？"],
   hf_orgs: ["他の組織に最も使われている組織（PageRank 上位）は？ 国や企業の偏りは？",
@@ -687,7 +687,7 @@ function renderRank() {
   const d = S.d, key = S.sizeBy, el = $("#rank"); if (!el) return;
   $("#rankBy").textContent = (key === "_pr" ? "PageRank（計算の途中）" : sizeOptions(d).find(o => o[0] === key)?.[1] || "") + "の上位10";
   const top = d.nodes.map((n, i) => [n, i]).sort((a, b) => (b[0][key] || 0) - (a[0][key] || 0)).slice(0, 10);
-  el.innerHTML = top.map(([n, i], r) => `<tr data-i="${i}"><td class="r">${r + 1}</td><td class="name">${esc(n.label)}</td><td class="n">${fmt(n[key], 3)}</td></tr>`).join("");
+  el.innerHTML = top.map(([n, i], r) => `<tr data-i="${i}"><td class="r">${r + 1}</td><td class="name">${esc(n.label)}${n.org && S.tab === "hf_models" ? `<span class="note">（${esc(n.org)}）</span>` : ""}</td><td class="n">${fmt(n[key], 3)}</td></tr>`).join("");
   el.querySelectorAll("tr").forEach(tr => tr.onclick = () => { const i = +tr.dataset.i; select(i); centerOn(i); });
 }
 
