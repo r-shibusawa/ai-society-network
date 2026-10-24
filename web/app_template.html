@@ -111,6 +111,7 @@ table.rank tr:hover td { background: var(--dim); }
 .card.ex > h2 { color: var(--accent); }
 .card.flash { animation: flash 1.2s ease-out; }
 @keyframes flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 0 transparent; } }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
 .pred { font-size: .82rem; display: flex; flex-direction: column; gap: 2px; background: var(--accent-soft); border-radius: 6px; padding: 6px 8px; }
 .pred label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .readout { font-family: var(--f-mono); font-size: .86rem; font-variant-numeric: tabular-nums; }
@@ -1052,7 +1053,8 @@ function renderLab() {
         <label for="gp">つなぎ替え確率</label><input type="range" id="gp" min="0" max="1" step="0.01" value="0.05">
       </div>
       <p class="readout" id="gparams"></p>
-      <div class="btns"><button class="btn solid" id="gmake">作る</button><button class="btn" id="ggrow">成長の様子を見る（BA）</button></div>
+      <div class="btns"><button class="btn solid" id="gmake">作る</button><button class="btn" id="ggrow">点が加わる順に見る</button></div>
+      <p class="note" id="ggrowNote" style="margin:4px 0 0"></p>
       <div class="stats" id="gstats" style="margin-top:10px"></div>
       <svg class="mini" id="ghist" viewBox="0 0 340 162" role="img" aria-label="次数分布"></svg>
     </div>
@@ -1067,11 +1069,15 @@ function renderLab() {
     const m = $("#gm").value;
     $("#gparams").textContent = `n=${$("#gn").value}，平均次数=${$("#gk").value}` + (m === "ws" ? `，つなぎ替え確率=${$("#gp").value}` : "");
     $("#gp").disabled = m !== "ws";
+    // 「点が加わる順に見る」は，点を1つずつ加えて作るスケールフリー（BA）だけで使える
+    $("#ggrow").disabled = m !== "ba";
+    $("#ggrowNote").textContent = m === "ba" ? "「点が加わる順に見る」：先に加わった点ほどつながりを集め，ハブになる様子が見られる"
+      : "「点が加わる順に見る」はスケールフリー（BA）を選んだときだけ使える（点を1つずつ加えて作るモデルのため）";
   };
   ["gm", "gn", "gk", "gp"].forEach(id => $("#" + id).oninput = upd); upd();
   $("#phi").oninput = () => $("#phiOut").textContent = `φ = ${$("#phi").value}`; $("#phi").oninput();
   $("#gmake").onclick = () => makeModel(false);
-  $("#ggrow").onclick = () => { $("#gm").value = "ba"; upd(); makeModel(true); };
+  $("#ggrow").onclick = () => makeModel(true);
   $("#echoRun").onclick = runEcho;
   $("#cmpMake").onclick = makeCompare;
   $("#cmpHub").onclick = () => { if (!LAB || LAB.kind !== "compare") makeCompare(); LAB.cut = true; drawLab(); };
