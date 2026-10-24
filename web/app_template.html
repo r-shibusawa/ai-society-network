@@ -631,7 +631,7 @@ function renderSide() {
   $("#spHub").onclick = () => startSpread(hubIndex());
   $("#spSel").onclick = () => startSpread(S.sel >= 0 ? S.sel : hubIndex());
   $("#spRand").onclick = () => startSpread(Math.floor(Math.random() * d.nodes.length));
-  $("#spReset").onclick = stopSpread;
+  $("#spReset").onclick = () => stopSpread();  // クリックのイベントを keep と取り違えないように
   $("#prStart").onclick = prStart; $("#prStep").onclick = () => prStep(); $("#prAuto").onclick = prAuto; $("#prEnd").onclick = prEnd;
   $("#mdOn").onclick = () => paintOn(); $("#mdAuto").onclick = () => paintOn("auto"); $("#mdOne").onclick = () => paintOn("one"); $("#mdOff").onclick = paintOff;
   $("#mdNb").onchange = e => { S.paintNb = e.target.checked; };
