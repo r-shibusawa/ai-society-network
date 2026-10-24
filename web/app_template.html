@@ -7,7 +7,7 @@
 /* レイアウト：上にデータセットのタブ，左に大きなネットワーク図，右に「調べる・実験する」パネル */
 :root {
   --bg: #f3f4f1; --panel: #fcfcfb; --ink: #14171c; --ink2: #4c535e; --muted: #858b93;
-  --line: #dcdfd8; --edge: #b4b7b0; --accent: #1f5f8b; --accent-ink: #ffffff; --accent-soft: #e2ecf4;
+  --line: #dcdfd8; --edge: #8a8e86; --accent: #1f5f8b; --accent-ink: #ffffff; --accent-soft: #e2ecf4;
   --hl: #14171c; --dim: rgba(20,23,28,.08); --bad: #d03b3b; --good: #0ca30c;
   --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100; --c5: #e87ba4; --c6: #008300; --c7: #6250d6; --c8: #e34948; --other: #b9b8b2;
   --f-display: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", sans-serif;
@@ -16,13 +16,13 @@
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #111315; --panel: #1a1c1e; --ink: #eef0ec; --ink2: #bfc4bd; --muted: #8b918b;
-  --line: #2d3032; --edge: #4a4e50; --accent: #6aa6d6; --accent-ink: #0c1620; --accent-soft: #1d2b37;
+  --line: #2d3032; --edge: #8e959a; --accent: #6aa6d6; --accent-ink: #0c1620; --accent-soft: #1d2b37;
   --hl: #ffffff; --dim: rgba(255,255,255,.07);
   --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300; --c7: #9085e9; --c8: #e66767; --other: #5a5c5a;
   color-scheme: dark; } }
 :root[data-theme="dark"] {
   --bg: #111315; --panel: #1a1c1e; --ink: #eef0ec; --ink2: #bfc4bd; --muted: #8b918b;
-  --line: #2d3032; --edge: #4a4e50; --accent: #6aa6d6; --accent-ink: #0c1620; --accent-soft: #1d2b37;
+  --line: #2d3032; --edge: #8e959a; --accent: #6aa6d6; --accent-ink: #0c1620; --accent-soft: #1d2b37;
   --hl: #ffffff; --dim: rgba(255,255,255,.07);
   --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300; --c7: #9085e9; --c8: #e66767; --other: #5a5c5a;
   color-scheme: dark; }
@@ -370,15 +370,15 @@ function draw() {
     S.frameInfo = { n: frames.length, sizes: frames.map(f => f.length), singles: ci.sizes.filter(x => x === 1).length };
   }
   // エッジ
-  const base = d.nodes.length > 1000 ? .35 : .55;
+  const base = d.nodes.length > 1000 ? .45 : .7;
   for (const [a, b, w] of d.E) {
     if (S.removed.has(a) || S.removed.has(b)) continue;
     if (S.crossOnly && d.nodes[a].lean && d.nodes[a].lean === d.nodes[b].lean) continue;
     const on = focus >= 0 && (a === focus || b === focus);
     const [x1, y1] = P(d.nodes[a]), [x2, y2] = P(d.nodes[b]);
-    ctx.globalAlpha = focus >= 0 ? (on ? .95 : .08) : base;
+    ctx.globalAlpha = focus >= 0 ? (on ? .95 : .12) : base;
     ctx.strokeStyle = on ? hl : edge;
-    ctx.lineWidth = ((d.maxW > 1 ? .4 + 5 * Math.sqrt(w / d.maxW) : (on ? 1.4 : .7))) / Math.sqrt(t.k);
+    ctx.lineWidth = ((d.maxW > 1 ? .4 + 5 * Math.sqrt(w / d.maxW) : (on ? 1.6 : .9))) / Math.sqrt(t.k);
     ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     if (on && d.directed) arrow(x1, y1, x2, y2, R(d.nodes[b]) / Math.sqrt(t.k), hl, t.k);
   }
