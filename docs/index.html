@@ -182,7 +182,7 @@ const TABS = [
   { key: "pypi", label: "AIソフトウェア依存" },
   { key: "collab", label: "AI研究の国際共著" },
   { key: "polblogs", label: "政治ブログの分断" },
-  { key: "pheme", label: "うわさの広がり方" },
+  { key: "pheme", label: "うわさへの反応" },
   { key: "lab", label: "実験室" },
 ];
 
@@ -1246,7 +1246,7 @@ function drawEcho(h) {
   svg.append("text").attr("x", 330).attr("y", 138).attr("text-anchor", "end").text("時間");
 }
 
-/* ============================================================ うわさの広がり方（PHEME の返信カスケード） */
+/* ============================================================ うわさへの反応（PHEME の返信カスケード） */
 const C = { ev: "sydneysiege", rum: 1, id: null, T: 1e9, timer: null, hover: -1 };
 const PH = DATA.pheme;
 function cascList() { return PH.cascades.filter(c => c.event === C.ev && c.rumor === C.rum); }
@@ -1254,8 +1254,8 @@ function curCasc() { return PH.cascades.find(c => c.id === C.id) || cascList()[0
 const fmtMin = m => m < 60 ? `${Math.round(m)}分` : m < 1440 ? `${(m / 60).toFixed(1)}時間` : `${(m / 1440).toFixed(1)}日`;
 
 function renderCasc() {
-  $("#capTitle").textContent = "うわさ（未確認情報）の広がり方：Twitter の返信の連鎖";
-  $("#capSrc").textContent = "中心＝元の投稿，外側ほど「返信への返信」。色が濃いほど早い時間の反応";
+  $("#capTitle").textContent = "うわさ（未確認情報）への反応の広がり方：Twitter の返信の連鎖";
+  $("#capSrc").textContent = "中心＝元の投稿，外側ほど「返信への返信」。色が濃いほど早い時間の反応。線＝返信（話題への反応）で，情報を広めるリポストの経路はこのデータにはない";
   const c0 = curCasc(); C.id = c0.id;
   $("#side").innerHTML = `
     <div class="card work"><h2>ワーク<small>考えて，ノートに書こう</small></h2><ol>${WORK.pheme.map(w => `<li>${esc(w)}</li>`).join("")}</ol></div>
