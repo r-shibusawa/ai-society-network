@@ -45,10 +45,11 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px s
 /* 右の列は左の列（図＋選んだノード）と同じ高さにして，中身はその中でスクロールさせる */
 .grid > .stage { grid-column: 1; grid-row: 1; }
 .grid > .detail { grid-column: 1; grid-row: 2; }
-.grid > aside.side { grid-column: 2; grid-row: 1 / span 2; align-self: stretch; contain: size; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 4px; }
+.grid > .cmp { grid-column: 1; grid-row: 3; }
+.grid > aside.side { grid-column: 2; grid-row: 1 / span 3; align-self: stretch; contain: size; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 4px; }
 @media (max-width: 960px) {
   .grid { grid-template-columns: minmax(0, 1fr); }
-  .grid > .stage, .grid > .detail, .grid > aside.side { grid-column: 1; grid-row: auto; }
+  .grid > .stage, .grid > .detail, .grid > .cmp, .grid > aside.side { grid-column: 1; grid-row: auto; }
   .grid > aside.side { contain: none; overflow: visible; padding-right: 0; }
 }
 .stage { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; height: clamp(400px, calc(100vh - 320px), 820px); }
@@ -101,6 +102,12 @@ table.rank tr:hover td { background: var(--dim); }
 .mini text { fill: var(--muted); font: 10px var(--f-mono); }
 .mini .ax { stroke: var(--line); }
 .note { font-size: .74rem; color: var(--muted); margin: 6px 0 0; }
+.cmpgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cmpgrid canvas { width: 100%; height: 240px; display: block; background: var(--bg); border-radius: 8px; }
+.cmpgrid .readout { font-size: .8rem; margin: 6px 0 0; }
+.swatch { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.swatch button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.swatch button[aria-pressed="true"] { border-color: var(--ink); }
 .pred { font-size: .82rem; display: flex; flex-direction: column; gap: 2px; background: var(--accent-soft); border-radius: 6px; padding: 6px 8px; }
 .pred label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .readout { font-family: var(--f-mono); font-size: .86rem; font-variant-numeric: tabular-nums; }
@@ -130,6 +137,13 @@ footer { color: var(--muted); font-size: .74rem; margin-top: 18px; }
       <div class="tip" id="tip" hidden></div>
     </div>
     <div class="card detail" id="detail"></div>
+    <div class="card cmp" id="cmp" hidden>
+      <h2>取り除く前と後を並べて比べる<small>右は塊ごとに色分け（青＝最大の塊）</small></h2>
+      <div class="cmpgrid">
+        <div><canvas id="cmpA"></canvas><p class="readout" id="cmpAOut"></p></div>
+        <div><canvas id="cmpB"></canvas><p class="readout" id="cmpBOut"></p></div>
+      </div>
+    </div>
 
     <aside class="side" id="side"></aside>
   </div>
@@ -243,6 +257,7 @@ const NODE_NOTE = { fb: "点＝友達（「あなた」は本人）", hf_models:
 const S = {
   tab: "fb", year: "2024", d: null,
   sizeBy: "deg", colorBy: "comm", sel: -1, hover: -1, pred: "", crossOnly: false,
+  pr: null, flow: null, paint: false, paintG: 0, paintNb: false, trace: null,
   removed: new Set(), removedLog: [], infected: null, infHist: [],
   t: d3.zoomIdentity, sx: null, sy: null,
 };
@@ -278,14 +293,15 @@ function colorMap(d) {
   const cnt = d3.rollup(d.nodes, v => v.length, get);
   const cats = [...cnt.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
   const top = cats.slice(0, 8);
-  const m = key === "lean" ? new Map([["リベラル", 0], ["保守", 7]]) : new Map(top.map((c, i) => [c, i]));
-  const label = c => key === "comm" ? `グループ${c + 1}` : c;
+  const m = key === "lean" ? new Map([["リベラル", 0], ["保守", 7]]) : key === "_grp" ? new Map(d3.range(8).map(g => [g, g])) : new Map(top.map((c, i) => [c, i]));
+  const label = c => key === "comm" || key === "_grp" ? `グループ${c + 1}` : c;
   return { get, idx: n => m.has(get(n)) ? m.get(get(n)) : -1, legend: top.map(c => [label(c), m.get(c), cnt.get(c)]), more: cats.length > 8 };
 }
 
 function radiusFn(d) {
   const key = S.sizeBy, n = d.nodes.length;
-  const max = d3.max(d.nodes, x => x[key] || 0) || 1;
+  // PageRank の計算中は，最終的な値の最大を基準にして，くり返しのたびに大きさが変わる様子を見せる
+  const max = key === "_pr" ? d3.max(d.nodes, x => x.pr) * 1.15 : (d3.max(d.nodes, x => x[key] || 0) || 1);
   const rmin = n > 1000 ? 1.6 : n > 300 ? 2.4 : n > 60 ? 3.2 : 5;
   const rmax = n > 1000 ? 16 : n > 300 ? 18 : n > 60 ? 20 : 18;
   return x => rmin + (rmax - rmin) * Math.sqrt(Math.max(0, x[key] || 0) / max);
@@ -346,8 +362,14 @@ function draw() {
     let col = cm.idx(n) >= 0 ? PAL[cm.idx(n)] : other;
     if (inf) col = inf.has(i) ? bad : other;
     let a = 1;
+    if (S.trace) {
+      const dep = S.trace.depth.get(i);
+      if (i === S.trace.root) col = css("--ink");
+      else if (dep != null && dep <= S.trace.shown) col = PAL[Math.min(dep, 3) - 1 + (dep === 1 ? 7 : 0)] || PAL[2];
+      else { col = other; a = .25; }
+    }
     if (removed) a = .12;
-    else if (focus >= 0 && i !== focus && !nbr.has(i)) a = .18;
+    else if (focus >= 0 && !S.trace && i !== focus && !nbr.has(i)) a = .18;
     ctx.globalAlpha = a;
     ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fillStyle = col; ctx.fill();
@@ -355,6 +377,18 @@ function draw() {
     if (i === focus || i === S.hover) { ctx.lineWidth = 2.2 / t.k; ctx.strokeStyle = hl; ctx.stroke(); }
   }
   ctx.globalAlpha = 1;
+  // PageRank の点数が，リンクをたどって流れる様子（点が線の上を動く）
+  if (S.flow) {
+    const f = S.flow, e = f.t < 0 ? 0 : f.t > 1 ? 1 : f.t, ease = e * e * (3 - 2 * e);
+    ctx.fillStyle = css("--bad");
+    for (const [a2, b2, amt] of f.edges) {
+      const [x1, y1] = P(d.nodes[a2]), [x2, y2] = P(d.nodes[b2]);
+      const r = (1.2 + 4.5 * Math.sqrt(amt / f.max)) / Math.sqrt(t.k);
+      ctx.globalAlpha = .85;
+      ctx.beginPath(); ctx.arc(x1 + (x2 - x1) * ease, y1 + (y2 - y1) * ease, r, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
   // ラベル：大きい順に重ならないよう配置
   const placed = [];
   const fs = 11.5 / t.k;
@@ -394,10 +428,16 @@ function arrow(x1, y1, x2, y2, r, col, k) {
 
 function renderLegend(cm) {
   const el = $("#legend");
+  if (S.trace) {
+    const T = S.trace, lab = T.labels;
+    el.innerHTML = `<span><i style="background:${css("--ink")}"></i>選んだ点</span><span><i style="background:${PAL[7]}"></i>${lab[0]}</span>` +
+      (T.mode === "all" ? `<span><i style="background:${PAL[1]}"></i>${lab[1]}</span><span><i style="background:${PAL[2]}"></i>${lab[2]}</span>` : "");
+    return;
+  }
   if (S.infected) { el.innerHTML = `<span><i style="background:${css("--bad")}"></i>影響を受けた</span><span><i style="background:${css("--other")}"></i>まだ影響なし</span>`; return; }
   el.innerHTML = cm.legend.map(([l, i]) => `<span><i style="background:${PAL[i]}"></i>${esc(l)}</span>`).join("") +
     (cm.more ? `<span><i style="background:${css("--other")}"></i>その他</span>` : "") +
-    `<span>大きさ：${esc(sizeOptions(S.d).find(o => o[0] === S.sizeBy)?.[1] || "")}</span>`;
+    `<span>大きさ：${S.sizeBy === "_pr" ? "PageRank（計算の途中）" : esc(sizeOptions(S.d).find(o => o[0] === S.sizeBy)?.[1] || "")}</span>`;
 }
 
 /* ============================================================ 操作（ズーム・ホバー・クリック） */
@@ -431,6 +471,7 @@ cv.addEventListener("mouseleave", () => { tip.hidden = true; S.hover = -1; draw(
 cv.addEventListener("click", ev => {
   if (S.tab === "lab" || S.tab === "pheme") return;
   const i = pick(ev);
+  if (S.paint && i >= 0) { paintNode(i); return; }
   select(i);
 });
 
@@ -444,7 +485,8 @@ function tipLines(n) {
 }
 
 function select(i) {
-  S.sel = i; draw(); renderDetail();
+  S.sel = i; S.trace = null; draw(); renderDetail();
+  if (S.pr) prReadout();
 }
 
 /* ============================================================ 右パネル */
@@ -483,7 +525,7 @@ function renderSide() {
     <div class="card"><h2>実験1：ノードを取り除く<small>故障・攻撃への強さ</small></h2>
       <div class="pred"><b>① まず予想：</b>${d.nodes[0].circle ? "「あなた」（最大のハブ）" : "最大のハブ"}を取り除くと？
         <label><input type="radio" name="pred" value="ほとんど変わらない"> ほとんど変わらない</label>
-        <label><input type="radio" name="pred" value="つながったまま，塊が少し小さくなる"> つながったまま，塊が少し小さくなる</label>
+        <label><input type="radio" name="pred" value="つながったままだが，遠回りが増える"> つながったままだが，遠回りが増える</label>
         <label><input type="radio" name="pred" value="いくつかの塊に分かれる"> いくつかの塊に分かれる</label>
       </div>
       <p class="note" style="margin:6px 0"><b>② 実験：</b>ボタンを押す　<b>③ 結果：</b>下の「前 → 後」を見て，予想と比べよう</p>
@@ -511,6 +553,28 @@ function renderSide() {
       <p class="readout" id="spOut"></p>
       <svg class="mini" id="spChart" viewBox="0 0 340 140" role="img" aria-label="広がりの推移"></svg>
     </div>
+    <div class="card"><h2>実験3：PageRank の計算を見る<small>くり返し計算</small></h2>
+      <p class="note" style="margin:0 0 6px">全員に同じ点数 1/n を配り，「リンク先へ点数を山分けして渡す」をくり返す（PR(v) = 0.15/n + 0.85 × Σ PR(u)/出ていく線の数）。赤い点が流れる点数，点の大きさがいまの PageRank。点を選ぶと，その点の計算の中身が出る。</p>
+      <div class="btns">
+        <button class="btn solid" id="prStart">始める（1/n）</button>
+        <button class="btn" id="prStep">1回くり返す</button>
+        <button class="btn" id="prAuto">自動で10回</button>
+        <button class="btn ghost" id="prEnd">終了</button>
+      </div>
+      <div class="readout" id="prOut"></div>
+    </div>
+    <div class="card"><h2>実験4：グループ分けとモジュラリティ Q<small>自分で塗り分ける</small></h2>
+      <p class="note" style="margin:0 0 6px">色を選んで点をクリックすると，その点のグループが変わり，Q が計算し直される。Q が大きいほど「内側で密，外とは疎」な分け方。</p>
+      <div class="btns">
+        <button class="btn" id="mdOn">塗り分けを始める</button>
+        <button class="btn" id="mdAuto">自動（ルーヴァン法）に戻す</button>
+        <button class="btn" id="mdOne">全員を1グループに</button>
+        <button class="btn ghost" id="mdOff">終了</button>
+      </div>
+      <div style="margin-top:6px" id="mdPal"></div>
+      <label style="display:flex;gap:6px;align-items:center;font-size:.82rem;margin-top:4px"><input type="checkbox" id="mdNb"> クリックした点の隣の点も一緒に塗る</label>
+      <p class="readout" id="mdOut"></p>
+    </div>
     <div class="card"><details class="gl"><summary>用語集</summary><dl>${GLOSS.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("")}</dl></details></div>
     <div class="card"><h2>データについて</h2><p class="note" style="margin:0">${esc(d.source)}</p></div>
   `;
@@ -529,7 +593,10 @@ function renderSide() {
   $("#spSel").onclick = () => startSpread(S.sel >= 0 ? S.sel : hubIndex());
   $("#spRand").onclick = () => startSpread(Math.floor(Math.random() * d.nodes.length));
   $("#spReset").onclick = stopSpread;
-  renderDetail(); renderRank(); renderDegree(); updateGiant(); drawRobust(null);
+  $("#prStart").onclick = prStart; $("#prStep").onclick = () => prStep(); $("#prAuto").onclick = prAuto; $("#prEnd").onclick = prEnd;
+  $("#mdOn").onclick = () => paintOn(); $("#mdAuto").onclick = () => paintOn("auto"); $("#mdOne").onclick = () => paintOn("one"); $("#mdOff").onclick = paintOff;
+  $("#mdNb").onchange = e => { S.paintNb = e.target.checked; };
+  renderDetail(); renderRank(); renderDegree(); updateGiant(); drawRobust(null); prReadout(); mdReadout();
 }
 const statBox = (v, l) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
 
@@ -564,17 +631,23 @@ function renderDetail() {
   if (n.version) rows.push(["バージョン", n.version]);
   const rank = d.nodes.filter(x => (x[S.sizeBy] || 0) > (n[S.sizeBy] || 0)).length + 1;
   const nb = d.adj[S.sel].map(i => d.nodes[i]).sort((a, b) => b.deg - a.deg);
-  el.innerHTML = `<h2>選んだノード<small>${esc(sizeOptions(d).find(o => o[0] === S.sizeBy)[1])}で ${rank} 位</small></h2>
+  el.innerHTML = `<h2>選んだノード<small>${S.sizeBy === "_pr" ? "PageRank（計算の途中）" : esc(sizeOptions(d).find(o => o[0] === S.sizeBy)?.[1] || "")}で ${rank} 位</small></h2>
     <div class="nm">${esc(n.id)}</div>${n.summary ? `<div class="note">${esc(n.summary)}</div>` : ""}
     <dl>${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
     <div class="nb"><b>つながっている相手（${nb.length}）</b><br>${nb.slice(0, 60).map(x => esc(x.label)).join("，")}${nb.length > 60 ? " …" : ""}</div>
+    ${d.directed ? traceBox(d) : ""}
     <div class="btns" style="margin-top:8px"><button class="btn ghost" id="unsel">選択を解除</button></div>`;
   $("#unsel").onclick = () => select(-1);
+  if (d.directed) {
+    $("#trDirect").onclick = () => traceStart("direct");
+    $("#trAll").onclick = () => traceStart("all");
+    $("#trOff").onclick = () => { S.trace = null; draw(); renderDetail(); };
+  }
 }
 
 function renderRank() {
   const d = S.d, key = S.sizeBy, el = $("#rank"); if (!el) return;
-  $("#rankBy").textContent = sizeOptions(d).find(o => o[0] === key)[1] + "の上位10";
+  $("#rankBy").textContent = (key === "_pr" ? "PageRank（計算の途中）" : sizeOptions(d).find(o => o[0] === key)?.[1] || "") + "の上位10";
   const top = d.nodes.map((n, i) => [n, i]).sort((a, b) => (b[0][key] || 0) - (a[0][key] || 0)).slice(0, 10);
   el.innerHTML = top.map(([n, i], r) => `<tr data-i="${i}"><td class="r">${r + 1}</td><td class="name">${esc(n.label)}</td><td class="n">${fmt(n[key], 3)}</td></tr>`).join("");
   el.querySelectorAll("tr").forEach(tr => tr.onclick = () => { const i = +tr.dataset.i; select(i); centerOn(i); });
@@ -594,6 +667,216 @@ function renderDegree() {
   svg.append("g").selectAll("circle").data(pts).join("circle").attr("cx", p => x(p[0])).attr("cy", p => y(p[1])).attr("r", 3.2).attr("fill", PAL[0]);
   svg.append("text").attr("x", 330).attr("y", 180).attr("text-anchor", "end").text(d.directed ? "入次数 k" : "次数 k");
 }
+
+/* ---------- 取り除く前と後を並べる */
+function compIds(d, removed) {
+  const n = d.nodes.length, id = new Int32Array(n).fill(-1), sizes = [];
+  for (let i = 0; i < n; i++) {
+    if (id[i] >= 0 || removed.has(i)) continue;
+    const c = sizes.length; let size = 0; const st = [i]; id[i] = c;
+    while (st.length) { const v = st.pop(); size++; for (const u of d.adj[v]) if (id[u] < 0 && !removed.has(u)) { id[u] = c; st.push(u); } }
+    sizes.push(size);
+  }
+  return { id, sizes };
+}
+// 最大の塊の中の平均距離（向きは無視）。大きな網では一部の点から測った推定値
+function avgDistGiant(d, removed, comp) {
+  const big = comp.sizes.indexOf(Math.max(...comp.sizes));
+  const members = d.nodes.map((_, i) => i).filter(i => comp.id[i] === big);
+  if (members.length < 2) return null;
+  const R = rng(3), src = members.length <= 60 ? members : d3.range(60).map(() => members[Math.floor(R() * members.length)]);
+  let tot = 0, cnt = 0;
+  const dist = new Int32Array(d.nodes.length);
+  for (const s0 of src) {
+    dist.fill(-1); dist[s0] = 0; const q = [s0];
+    for (let h = 0; h < q.length; h++) { const v = q[h]; for (const u of d.adj[v]) if (dist[u] < 0 && !removed.has(u)) { dist[u] = dist[v] + 1; q.push(u); } }
+    for (const i of members) if (dist[i] > 0) { tot += dist[i]; cnt++; }
+  }
+  return cnt ? tot / cnt : null;
+}
+function drawCmp() {
+  const card = $("#cmp"), d = S.d;
+  if (!d || !S.removed.size) { card.hidden = true; return; }
+  card.hidden = false;
+  const qx = d.nodes.map(n => n.x).sort(d3.ascending), qy = d.nodes.map(n => n.y).sort(d3.ascending), q = d.nodes.length > 300 ? .01 : 0;
+  const xs = [d3.quantileSorted(qx, q), d3.quantileSorted(qx, 1 - q)], ys = [d3.quantileSorted(qy, q), d3.quantileSorted(qy, 1 - q)];
+  const before = compIds(d, new Set()), after = compIds(d, S.removed);
+  const order = after.sizes.map((sz, c) => [sz, c]).sort((a, b) => b[0] - a[0]).map(e => e[1]);
+  const rankOf = new Map(order.map((c, r) => [c, r]));
+  const cm = colorMap(d), other = css("--other"), edge = css("--edge");
+  const paint = (cvs, isAfter) => {
+    const r = cvs.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    cvs.width = r.width * dpr; cvs.height = r.height * dpr;
+    const c = cvs.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, r.width, r.height);
+    const pad = 12, sc = Math.min((r.width - pad * 2) / (xs[1] - xs[0] || 1), (r.height - pad * 2) / (ys[1] - ys[0] || 1));
+    const X = x => r.width / 2 + (x - (xs[0] + xs[1]) / 2) * sc, Y = y => r.height / 2 + (y - (ys[0] + ys[1]) / 2) * sc;
+    c.strokeStyle = edge; c.globalAlpha = d.E.length > 3000 ? .12 : .3; c.lineWidth = .6; c.beginPath();
+    for (const [a, b] of d.E) {
+      if (isAfter && (S.removed.has(a) || S.removed.has(b))) continue;
+      c.moveTo(X(d.nodes[a].x), Y(d.nodes[a].y)); c.lineTo(X(d.nodes[b].x), Y(d.nodes[b].y));
+    }
+    c.stroke(); c.globalAlpha = 1;
+    const rr = d.nodes.length > 300 ? 1.6 : 2.8;
+    d.nodes.forEach((n, i) => {
+      if (isAfter && S.removed.has(i)) return;
+      let col;
+      if (!isAfter) col = cm.idx(n) >= 0 ? PAL[cm.idx(n)] : other;
+      else { const rk = rankOf.get(after.id[i]); col = after.sizes[after.id[i]] === 1 ? other : rk < 7 ? PAL[rk] : other; }
+      c.fillStyle = col; c.beginPath(); c.arc(X(n.x), Y(n.y), rr, 0, Math.PI * 2); c.fill();
+    });
+    if (isAfter) {
+      c.strokeStyle = css("--bad"); c.lineWidth = 1.5;
+      for (const i of S.removed) { const n = d.nodes[i], x = X(n.x), y = Y(n.y); c.beginPath(); c.moveTo(x - 3, y - 3); c.lineTo(x + 3, y + 3); c.moveTo(x + 3, y - 3); c.lineTo(x - 3, y + 3); c.stroke(); }
+    }
+  };
+  paint($("#cmpA"), false); paint($("#cmpB"), true);
+  const n = d.nodes.length, single = after.sizes.filter(x => x === 1).length;
+  const dA = d._dist0 ?? (d._dist0 = avgDistGiant(d, new Set(), before)), dB = avgDistGiant(d, S.removed, after);
+  const big = sz => (Math.max(...sz) / n * 100).toFixed(1);
+  $("#cmpAOut").innerHTML = `<b>前</b>　点 ${n}　塊 ${before.sizes.length}　最大の塊 ${big(before.sizes)}%<br>最大の塊の中の平均距離 ${dA ? dA.toFixed(2) : "—"}`;
+  $("#cmpBOut").innerHTML = `<b>後</b>　点 ${n - S.removed.size}（×＝取り除いた点）　塊 ${after.sizes.length}（うち1点だけ ${single}）　最大の塊 <b>${big(after.sizes)}%</b><br>最大の塊の中の平均距離 <b>${dB ? dB.toFixed(2) : "—"}</b>` +
+    (dA && dB ? `（${dB > dA + .005 ? "遠回りが増えた" : "ほぼ同じ"}）` : "");
+}
+
+/* ---------- 実験3：PageRank のくり返し計算を見せる */
+let prTimer = null, flowRaf = 0;
+const ALPHA = .85;
+function prOutLists(d) {
+  if (d._outW) return;
+  // 有向：a→b（派生→元，利用→依存先）に点数が流れる。無向：両向きに流れる。重みがあれば重みに比例して山分け
+  d._outL = d.nodes.map(() => []);
+  for (const [a, b, w] of d.E) { d._outL[a].push([b, w]); if (!d.directed) d._outL[b].push([a, w]); }
+  d._outW = d._outL.map(L => L.reduce((s0, e) => s0 + e[1], 0));
+}
+function prStart() {
+  const d = S.d; prOutLists(d); stopSpread(); S.paint = false; S.trace = null;
+  const n = d.nodes.length;
+  S.pr = { it: 0, val: new Float64Array(n).fill(1 / n), prevSize: S.sizeBy, delta: null };
+  d.nodes.forEach(nd => nd._pr = 1 / n);
+  S.sizeBy = "_pr"; draw(); prReadout();
+}
+function prStep(done) {
+  const d = S.d; if (!S.pr) prStart();
+  if (S.flow) return;
+  const n = d.nodes.length, old = S.pr.val, nv = new Float64Array(n);
+  let dangling = 0; const flows = [];
+  for (let u = 0; u < n; u++) {
+    if (!d._outW[u]) { dangling += old[u]; continue; }
+    for (const [v, w] of d._outL[u]) { const amt = ALPHA * old[u] * w / d._outW[u]; nv[v] += amt; flows.push([u, v, amt]); }
+  }
+  for (let v = 0; v < n; v++) nv[v] += (1 - ALPHA) / n + ALPHA * dangling / n;
+  flows.sort((a, b) => b[2] - a[2]);
+  const shown = flows.slice(0, 350);
+  S.flow = { edges: shown, max: shown.length ? shown[0][2] : 1, t: 0 };
+  const t0 = performance.now(), dur = 750;
+  const anim = now => {
+    S.flow.t = (now - t0) / dur; draw();
+    if (S.flow.t < 1) { flowRaf = setTimeout(() => anim(performance.now()), 16); return; }
+    S.flow = null;
+    let delta = 0; for (let i = 0; i < n; i++) delta += Math.abs(nv[i] - old[i]);
+    S.pr.val = nv; S.pr.it++; S.pr.delta = delta;
+    d.nodes.forEach((nd, i) => nd._pr = nv[i]);
+    draw(); prReadout();
+    if (done) done();
+  };
+  flowRaf = setTimeout(() => anim(performance.now()), 16);
+}
+function prAuto() {
+  let k = 0;
+  const go = () => { if (!S.pr || k++ >= 10) return; prStep(() => { prTimer = setTimeout(go, 150); }); };
+  go();
+}
+function prEnd() {
+  clearTimeout(prTimer); clearTimeout(flowRaf); S.flow = null;
+  if (S.pr) S.sizeBy = S.pr.prevSize;
+  S.pr = null; draw(); prReadout();
+}
+function prReadout() {
+  const el = $("#prOut"); if (!el) return;
+  const d = S.d;
+  if (!S.pr) { el.innerHTML = "「始める」を押そう。"; return; }
+  const P = S.pr, n = d.nodes.length, R = rng(1);
+  const top = d.nodes.map((nd, i) => i).sort((a, b) => P.val[b] - P.val[a]).slice(0, 5);
+  let html = `くり返し <b>${P.it}</b> 回目` + (P.delta != null ? `　前回からの変化（合計）${P.delta.toFixed(4)}` : "") +
+    `<table class="rank" style="margin-top:4px"><tr><td></td><td class="name"><b>いまの上位5</b></td><td class="n">いまの値</td><td class="n">最終の値</td></tr>` +
+    top.map((i, r) => `<tr><td class="r">${r + 1}</td><td class="name">${esc(d.nodes[i].label)}</td><td class="n">${P.val[i].toFixed(4)}</td><td class="n">${fmt(d.nodes[i].pr, 4)}</td></tr>`).join("") + "</table>";
+  if (S.sel >= 0) {
+    const v = S.sel, from = [];
+    for (let u = 0; u < n; u++) for (const [t2, w] of d._outL[u]) if (t2 === v) from.push([u, P.val[u] * w / d._outW[u]]);
+    from.sort((a, b) => b[1] - a[1]);
+    html += `<p class="note" style="margin-top:6px"><b>${esc(d.nodes[v].label)}</b> の次の値 ＝ 0.15/${n} ＋ 0.85 ×（${from.slice(0, 4).map(([u, x]) => `${esc(d.nodes[u].label)} から ${x.toFixed(4)}`).join("，")}${from.length > 4 ? ` ほか${from.length - 4}件` : ""}）</p>`;
+  }
+  el.innerHTML = html;
+}
+
+/* ---------- 実験4：自分で塗り分けて Q を計算 */
+function modularity(d, g) {
+  const n = d.nodes.length, k = new Float64Array(n); let m = 0;
+  const inside = new Map(), tot = new Map();
+  for (const [a, b, w] of d.E) { if (a === b) continue; k[a] += w; k[b] += w; m += w; if (g[a] === g[b]) inside.set(g[a], (inside.get(g[a]) || 0) + w); }
+  for (let i = 0; i < n; i++) tot.set(g[i], (tot.get(g[i]) || 0) + k[i]);
+  let Q = 0; for (const [c, t2] of tot) Q += (inside.get(c) || 0) / m - (t2 / (2 * m)) ** 2;
+  return Q;
+}
+function paintOn(mode) {
+  const d = S.d; stopSpread(); if (S.pr) prEnd(); S.trace = null;
+  if (!d._grp0) d.nodes.forEach(nd => nd._grp = Math.min(nd.comm, 7));
+  d._grp0 = true;
+  if (mode === "auto") d.nodes.forEach(nd => nd._grp = Math.min(nd.comm, 7));
+  if (mode === "one") d.nodes.forEach(nd => nd._grp = 0);
+  if (!S.paint) S.prevColor = S.colorBy;
+  S.paint = true; S.colorBy = "_grp";
+  $("#mdPal").innerHTML = `<span class="note" style="margin-right:6px">塗る色</span><span class="swatch">${d3.range(8).map(g => `<button style="background:${PAL[g]}" data-g="${g}" aria-pressed="${g === S.paintG}" aria-label="グループ${g + 1}"></button>`).join("")}</span>`;
+  $("#mdPal").querySelectorAll("button").forEach(b => b.onclick = () => { S.paintG = +b.dataset.g; $("#mdPal").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+  draw(); mdReadout();
+}
+function paintOff() {
+  if (S.paint) S.colorBy = S.prevColor || "comm";
+  S.paint = false; $("#mdPal").innerHTML = ""; draw(); mdReadout();
+}
+function paintNode(i) {
+  const d = S.d;
+  d.nodes[i]._grp = S.paintG;
+  if (S.paintNb) for (const u of d.adj[i]) d.nodes[u]._grp = S.paintG;
+  draw(); mdReadout();
+}
+function mdReadout() {
+  const el = $("#mdOut"); if (!el) return;
+  const d = S.d, auto = d.stats.modularity;
+  if (!S.paint) { el.innerHTML = `自動（ルーヴァン法）で見つけた分け方の Q ＝ ${auto}`; return; }
+  const g = d.nodes.map(nd => nd._grp), Q = modularity(d, g), used = new Set(g).size;
+  el.innerHTML = `いまの分け方：グループ ${used} 個　<b>Q ＝ ${Q.toFixed(3)}</b><br>自動（ルーヴァン法）の Q ＝ ${auto}` +
+    (Q > auto + .001 ? "　→ 自動より大きい！" : "");
+}
+
+/* ---------- 選んだ点から，向きに沿って段階的にたどる（直接／間接） */
+function traceBox(d) {
+  const lab = S.tab === "pypi" ? ["直接依存している部品", "2段目", "3段目以降"] : S.tab === "hf_orgs" ? ["直接使っている組織", "2段目", "3段目以降"] : ["直接の派生モデル", "派生の派生（2段目）", "3段目以降"];
+  const what = S.tab === "pypi" ? "このライブラリに（間接的にでも）依存している部品" : S.tab === "hf_orgs" ? "この組織の基盤モデルを（間接的にでも）使っている組織" : "このモデルから（間接的にでも）派生したモデル";
+  const dep = bfsIn(d, S.sel), c1 = [...dep.values()].filter(x => x === 1).length;
+  const info = S.trace ? `　表示中：${S.trace.shown} 段目まで` : "";
+  return `<div class="nb" style="max-height:none"><b>向きに沿ってたどる</b>：${what}<br>直接 <b>${c1}</b>　間接も含む <b>${dep.size}</b>（最大 ${dep.size ? Math.max(...dep.values()) : 0} 段）${info}
+    <div class="btns" style="margin-top:4px"><button class="btn" id="trDirect">${lab[0]}だけ</button><button class="btn" id="trAll">間接も含めて段階的に</button><button class="btn ghost" id="trOff">たどる表示を終了</button></div></div>`;
+}
+function bfsIn(d, root) {
+  const depth = new Map(); const q = [root]; const seen = new Set([root]);
+  for (let h = 0; h < q.length; h++) { const v = q[h]; for (const u of d.inn[v]) if (!seen.has(u)) { seen.add(u); depth.set(u, (depth.get(v) || 0) + 1); q.push(u); } }
+  return depth;
+}
+function traceStart(mode) {
+  const d = S.d; if (S.sel < 0) return;
+  stopSpread(); if (S.pr) prEnd();
+  const depth = bfsIn(d, S.sel), maxD = depth.size ? Math.max(...depth.values()) : 0;
+  const labels = S.tab === "pypi" ? ["1段目（直接依存）", "2段目", "3段目以降"] : S.tab === "hf_orgs" ? ["1段目（直接）", "2段目", "3段目以降"] : ["1段目（直接の派生）", "2段目", "3段目以降"];
+  S.trace = { root: S.sel, depth, mode, shown: mode === "direct" ? 1 : 0, labels };
+  const root = S.sel;
+  centerOn(root);
+  if (mode === "all") {
+    const step = () => { if (!S.trace || S.trace.root !== root) return; S.trace.shown++; draw(); renderDetailKeep(); if (S.trace.shown < maxD) prTimer = setTimeout(step, 900); };
+    step();
+  } else { draw(); renderDetailKeep(); }
+}
+function renderDetailKeep() { const t = S.trace; renderDetail(); S.trace = t; }
 
 /* ---------- 実験1：取り除く */
 function removeBy(mode, k) {
@@ -616,6 +899,7 @@ function updateGiant() {
     `最大の塊：${(before.giant * 100).toFixed(1)}% → <b>${(after.giant * 100).toFixed(1)}%</b>（${diff >= 0 ? "+" : ""}${diff.toFixed(1)} ポイント）<br>` +
     `塊の数：${before.count} → <b>${after.count}</b>` +
     (S.removed.size && S.pred ? `<br>あなたの予想：「${esc(S.pred)}」。結果と同じだった？ 違ったら，なぜだろう？` : "");
+  drawCmp();
 }
 function runRobust() {
   const d = S.d, n = d.nodes.length, steps = 26, F = d3.range(steps).map(i => i * .02);
@@ -649,7 +933,7 @@ function drawRobust(res) {
 /* ---------- 実験2：広がり */
 let spTimer = null;
 function startSpread(seed) {
-  stopSpread(true);
+  stopSpread(true); if (S.pr) prEnd(); S.trace = null;
   const d = S.d, beta = +$("#beta").value, R = rng(Date.now());
   const nb = d.directed ? d.inn : d.adj;
   S.infected = new Set([seed]); S.infHist = [1];
@@ -696,7 +980,14 @@ function renderLab() {
     <div class="card work"><h2>ワーク<small>考えて，ノートに書こう</small></h2><ol>
       <li>同じノード数・平均次数で「ランダム」と「スケールフリー」を作り，分布と最大次数を比べよう。</li>
       <li>スモールワールドで「つなぎ替え確率」を0→0.1にすると平均距離とクラスター係数はどう変わる？</li>
-      <li>エコーチェンバー実験：つなぎ直す確率 φ を上げると，異なる意見どうしのつながりはどうなる？</li></ol></div>
+      <li>エコーチェンバー実験：つなぎ直す確率 φ を上げると，異なる意見どうしのつながりはどうなる？</li>
+      <li>C で3つのモデルを並べ，ハブを取り除いたときの崩れ方を比べよう。どのモデルが一番もろい？</li></ol></div>
+    <div class="card"><h2>C. 3つのモデルを並べて比べる<small>同じノード数・同じエッジ数</small></h2>
+      <p class="note" style="margin:0 0 6px">A の「ノード数」「平均次数」で，ランダム・スモールワールド（つなぎ替え確率 0.1）・スケールフリー（優先的選択）を同時に作る。</p>
+      <div class="btns"><button class="btn solid" id="cmpMake">3つ並べて作る</button><button class="btn" id="cmpHub">それぞれハブ上位5%を取り除く</button><button class="btn ghost" id="cmpReset">元に戻す</button></div>
+      <table class="rank" id="cmpTable" style="margin-top:8px"></table>
+      <p class="note">取り除いた後の数値は，最大の塊に残った点の割合。ランダムに5%取り除いた場合は10回の平均。</p>
+    </div>
     <div class="card"><h2>A. ネットワークを作る</h2>
       <div class="ctl">
         <label for="gm">モデル</label><select id="gm"><option value="er">ランダム（ER）</option><option value="ws">スモールワールド（WS）</option><option value="ba" selected>スケールフリー（BA：優先的選択）</option></select>
@@ -726,6 +1017,9 @@ function renderLab() {
   $("#gmake").onclick = () => makeModel(false);
   $("#ggrow").onclick = () => { $("#gm").value = "ba"; upd(); makeModel(true); };
   $("#echoRun").onclick = runEcho;
+  $("#cmpMake").onclick = makeCompare;
+  $("#cmpHub").onclick = () => { if (!LAB || LAB.kind !== "compare") makeCompare(); LAB.cut = true; drawLab(); };
+  $("#cmpReset").onclick = () => { if (LAB && LAB.kind === "compare") { LAB.cut = false; drawLab(); } };
   $("#echoStop").onclick = () => { clearInterval(labTimer); labTimer = null; };
   makeModel(false);
 }
@@ -803,8 +1097,78 @@ function startForce(ring) {
   S.t = d3.zoomIdentity; d3.select(cv).call(zoom.transform, d3.zoomIdentity);
 }
 
+/* ---------- C. 3つのモデルを並べる */
+function labAdj(n, E) { const a = d3.range(n).map(() => []); E.forEach(([x, y]) => { a[x].push(y); a[y].push(x); }); return a; }
+function labGiant(n, adj, removed) {
+  const seen = new Uint8Array(n); let best = 0;
+  for (let i = 0; i < n; i++) {
+    if (seen[i] || removed.has(i)) continue;
+    let size = 0; const st = [i]; seen[i] = 1;
+    while (st.length) { const v = st.pop(); size++; for (const u of adj[v]) if (!seen[u] && !removed.has(u)) { seen[u] = 1; st.push(u); } }
+    best = Math.max(best, size);
+  }
+  return best / n;
+}
+function labMetrics(n, adj) {
+  let tot = 0, cnt = 0;
+  for (const s0 of d3.range(Math.min(n, 120))) { const dist = new Int32Array(n).fill(-1); dist[s0] = 0; const q = [s0]; for (let h = 0; h < q.length; h++) { const v = q[h]; for (const u of adj[v]) if (dist[u] < 0) { dist[u] = dist[v] + 1; q.push(u); } } for (let i = 0; i < n; i++) if (dist[i] > 0) { tot += dist[i]; cnt++; } }
+  let cc = 0;
+  for (let v = 0; v < n; v++) { const nb = adj[v], kk = nb.length; if (kk < 2) continue; const st = new Set(nb); let t = 0; for (const a of nb) for (const b of adj[a]) if (b > a && st.has(b)) t++; cc += t / (kk * (kk - 1) / 2); }
+  return { L: tot / cnt, C: cc / n };
+}
+function makeCompare() {
+  clearInterval(labTimer); labTimer = null; if (labSim) labSim.stop();
+  const n = +$("#gn").value, k = +$("#gk").value, R = rng(Math.floor(Math.random() * 1e9));
+  const specs = [["er", "ランダム", 0], ["ws", "スモールワールド", .1], ["ba", "スケールフリー", 0]];
+  const parts = specs.map(([m, name, p]) => {
+    let E = genModel(m, n, k, p, R);
+    const nodes = d3.range(n).map(i => ({ index: i }));
+    if (m === "ws") nodes.forEach((d, i) => { d.x = Math.cos(i / n * 2 * Math.PI) * 100; d.y = Math.sin(i / n * 2 * Math.PI) * 100; });
+    else d3.forceSimulation(nodes).force("link", d3.forceLink(E.map(([a, b]) => ({ source: a, target: b }))).distance(12).strength(.5))
+      .force("charge", d3.forceManyBody().strength(-14)).force("x", d3.forceX(0).strength(.06)).force("y", d3.forceY(0).strength(.06)).stop().tick(260);
+    const adj = labAdj(n, E), deg = adj.map(a => a.length);
+    const hubs = new Set(d3.range(n).sort((a, b) => deg[b] - deg[a]).slice(0, Math.round(n * .05)));
+    let rnd = 0; for (let r = 0; r < 10; r++) { const o = d3.shuffle(d3.range(n)); rnd += labGiant(n, adj, new Set(o.slice(0, hubs.size))) / 10; }
+    return { name, nodes, E, adj, deg, hubs, met: labMetrics(n, adj), giant0: labGiant(n, adj, new Set()), giantHub: labGiant(n, adj, hubs), giantRnd: rnd };
+  });
+  LAB = { kind: "compare", parts, cut: false, nodes: [] };
+  S.t = d3.zoomIdentity; d3.select(cv).call(zoom.transform, d3.zoomIdentity);
+  const pc = v => (v * 100).toFixed(0) + "%";
+  $("#cmpTable").innerHTML = `<tr><td class="name"></td>${parts.map(P => `<td class="n"><b>${P.name}</b></td>`).join("")}</tr>` +
+    [["平均距離", P => P.met.L.toFixed(2)], ["クラスター係数", P => P.met.C.toFixed(3)], ["最大次数", P => d3.max(P.deg)],
+     ["ハブ5%を除いた後", P => pc(P.giantHub)], ["ランダム5%を除いた後", P => pc(P.giantRnd)]]
+      .map(([l, f]) => `<tr><td class="name">${l}</td>${parts.map(P => `<td class="n">${f(P)}</td>`).join("")}</tr>`).join("");
+  drawLab();
+}
+function drawCompare() {
+  const t = S.t, parts = LAB.parts, pw = W / 3, panel = css("--panel");
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  parts.forEach((P, k) => {
+    const ext = 1.08 * (d3.max(P.nodes, d => Math.max(Math.abs(d.x), Math.abs(d.y))) || 1);
+    const sc = Math.min(pw - 16, H - 130) / 2 / ext, cx = pw * k + pw / 2, cy = H / 2 + 14;
+    ctx.save(); ctx.translate(t.x, t.y); ctx.scale(t.k, t.k);
+    ctx.strokeStyle = css("--edge"); ctx.globalAlpha = .5; ctx.lineWidth = .7 / t.k; ctx.beginPath();
+    for (const [a, b] of P.E) { if (LAB.cut && (P.hubs.has(a) || P.hubs.has(b))) continue; ctx.moveTo(cx + P.nodes[a].x * sc, cy + P.nodes[a].y * sc); ctx.lineTo(cx + P.nodes[b].x * sc, cy + P.nodes[b].y * sc); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+    const maxd = d3.max(P.deg) || 1;
+    P.nodes.forEach((d, i) => {
+      const r = (2 + 9 * Math.sqrt(P.deg[i] / maxd)) / Math.sqrt(t.k), hub = P.hubs.has(i);
+      ctx.globalAlpha = LAB.cut && hub ? .15 : 1;
+      ctx.beginPath(); ctx.arc(cx + d.x * sc, cy + d.y * sc, r, 0, Math.PI * 2);
+      ctx.fillStyle = hub ? css("--bad") : PAL[[0, 2, 1][k]]; ctx.fill(); ctx.lineWidth = .8 / t.k; ctx.strokeStyle = panel; ctx.stroke();
+    });
+    ctx.restore(); ctx.globalAlpha = 1;
+    ctx.fillStyle = css("--ink"); ctx.font = `700 14px ${css("--f-body")}`; ctx.textAlign = "center"; ctx.textBaseline = "top";
+    ctx.fillText(P.name, cx, 84);
+    ctx.font = `500 12px ${css("--f-mono")}`; ctx.fillStyle = css("--ink2");
+    ctx.fillText(LAB.cut ? `最大の塊 ${(P.giant0 * 100).toFixed(0)}% → ${(P.giantHub * 100).toFixed(0)}%` : `平均距離 ${P.met.L.toFixed(2)}　C ${P.met.C.toFixed(2)}`, cx, 104);
+  });
+  $("#legend").innerHTML = `<span><i style="background:${css("--bad")}"></i>ハブ上位5%</span><span>大きさ：次数</span>${LAB.cut ? "<span>ハブを取り除いた状態</span>" : ""}`;
+}
+
 function drawLab() {
   if (S.tab !== "lab" || !LAB) return;
+  if (LAB.kind === "compare") return drawCompare();
   const t = S.t, nodes = LAB.nodes;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
   const ext = 1.1 * (d3.max(nodes, d => Math.max(Math.abs(d.x), Math.abs(d.y))) || 1);
@@ -1030,12 +1394,14 @@ function load() {
   stopSpread(); if (labSim) labSim.stop(); clearInterval(labTimer); labTimer = null; clearInterval(C.timer); C.timer = null;
   tip.hidden = true;
   $("#detail").hidden = S.tab === "lab" || S.tab === "pheme";
+  $("#cmp").hidden = true; clearTimeout(prTimer); prTimer = null; clearTimeout(flowRaf); S.flow = null;
   $("#side").scrollTop = 0;
   S.t = d3.zoomIdentity; d3.select(cv).call(zoom.transform, d3.zoomIdentity);
   if (S.tab === "lab") { S.d = null; quad = null; resize(); renderLab(); return; }
   if (S.tab === "pheme") { S.d = null; quad = null; resize(); renderCasc(); return; }
   const d = prepare(DATA[dsKey()]);
   S.d = d; S.sel = -1; S.hover = -1; S.removed = new Set();
+  S.pr = null; S.flow = null; S.paint = false; S.trace = null; delete d._grp0;
   const sOpt = sizeOptions(d).map(o => o[0]), cOpt = colorOptions(d).map(o => o[0]);
   S.sizeBy = d.nodes[0].used != null ? "used" : d.directed ? "in" : (d.nodes[0].papers != null ? "papers" : "deg");
   if (!sOpt.includes(S.sizeBy)) S.sizeBy = sOpt[0];
@@ -1050,7 +1416,7 @@ function load() {
 function themeChanged() { readPalette(); if (S.tab === "lab") drawLab(); else if (S.tab === "pheme") { drawCasc(); drawCascCharts(); } else { draw(); renderDegree(); drawSpread(); } }
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeChanged);
 new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-new ResizeObserver(() => { resize(); if (S.tab === "lab") drawLab(); if (S.tab === "pheme") drawCasc(); }).observe($("#stage"));
+new ResizeObserver(() => { resize(); if (S.tab === "lab") drawLab(); if (S.tab === "pheme") drawCasc(); if (!$("#cmp").hidden) drawCmp(); }).observe($("#stage"));
 const h = (location.hash || "").slice(1);
 if (TABS.some(t => t.key === h)) S.tab = h;
 load();
