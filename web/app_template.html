@@ -108,6 +108,9 @@ table.rank tr:hover td { background: var(--dim); }
 .swatch { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .swatch button { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
 .swatch button[aria-pressed="true"] { border-color: var(--ink); }
+.card.ex > h2 { color: var(--accent); }
+.card.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 3px var(--accent); } to { box-shadow: 0 0 0 0 transparent; } }
 .pred { font-size: .82rem; display: flex; flex-direction: column; gap: 2px; background: var(--accent-soft); border-radius: 6px; padding: 6px 8px; }
 .pred label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .readout { font-family: var(--f-mono); font-size: .86rem; font-variant-numeric: tabular-nums; }
@@ -497,6 +500,9 @@ function renderSide() {
     ${S.tab === "collab" ? `<div class="card"><h2>年を選ぶ<small>同じ方法で抽出した3時点</small></h2>
       <div class="year btns">${["2014", "2019", "2024"].map(y => `<button class="btn ${y === S.year ? "solid" : ""}" data-year="${y}">${y}年</button>`).join("")}</div></div>` : ""}
     <div class="card work"><h2>ワーク<small>考えて，ノートに書こう</small></h2><ol>${WORK[S.tab].map(w => `<li>${esc(w)}</li>`).join("")}</ol></div>
+    <div class="card jump"><h2>実験へ移動<small>この欄を下にスクロールしても見られる</small></h2>
+      <div class="btns">${[["ex1", "実験1 取り除く"], ["ex2", d.directed ? "実験2 影響の伝わり方" : "実験2 情報の広がり方"], ["ex3", "実験3 PageRank"], ["ex4", "実験4 グループ分け"]]
+        .map(([id, l]) => `<button class="btn" data-jump="${id}">${l}</button>`).join("")}</div></div>
     <div class="card"><h2>ネットワーク全体の特徴<small>${d.directed ? "有向グラフ" : "無向グラフ"}</small></h2>
       <div class="stats">
         ${statBox(st.nodes.toLocaleString(), "ノード数")}
@@ -522,7 +528,7 @@ function renderSide() {
     <div class="card"><h2>ランキング<small id="rankBy"></small></h2><table class="rank" id="rank"></table></div>
     <div class="card"><h2>つながりの数の分布<small>両対数グラフ</small></h2><svg class="mini" id="ddist" viewBox="0 0 340 182" role="img" aria-label="次数分布"></svg>
       <p class="note">横軸：つながりの数 k，縦軸：k 以上の割合。直線に近いほど「ごく一部のハブに集中」（べき乗則）。</p></div>
-    <div class="card"><h2>実験1：ノードを取り除く<small>故障・攻撃への強さ</small></h2>
+    <div class="card ex" id="ex1"><h2>実験1：ノードを取り除く<small>故障・攻撃への強さ</small></h2>
       <div class="pred"><b>① まず予想：</b>${d.nodes[0].circle ? "「あなた」（最大のハブ）" : "最大のハブ"}を取り除くと？
         <label><input type="radio" name="pred" value="ほとんど変わらない"> ほとんど変わらない</label>
         <label><input type="radio" name="pred" value="つながったままだが，遠回りが増える"> つながったままだが，遠回りが増える</label>
@@ -540,7 +546,7 @@ function renderSide() {
       <svg class="mini" id="robChart" viewBox="0 0 340 186" role="img" aria-label="頑健性の比較"></svg>
       <p class="note">ランダムは10回試した平均。狙い撃ちは最初の次数が大きい順に取り除く（途中で次数を計算し直さない）。つながりの実験で，${d.directed ? "実際にソフトやモデルが動かなくなるかとは別。" : "現実に何が起こるかとは別。"}</p>
     </div>
-    <div class="card"><h2>実験2：${d.directed ? "影響の伝わり方" : "情報の広がり方"}<small>${d.directed ? "元が壊れると，それを使う側へ" : "隣の人へ確率的に伝わる"}</small></h2>
+    <div class="card ex" id="ex2"><h2>実験2：${d.directed ? "影響の伝わり方" : "情報の広がり方"}<small>${d.directed ? "元が壊れると，それを使う側へ" : "隣の人へ確率的に伝わる"}</small></h2>
       <div class="ctl">
         <label for="beta">伝わる確率</label><input type="range" id="beta" min="0.05" max="1" step="0.05" value="${d.directed ? 1 : 0.3}">
       </div>
@@ -553,7 +559,7 @@ function renderSide() {
       <p class="readout" id="spOut"></p>
       <svg class="mini" id="spChart" viewBox="0 0 340 140" role="img" aria-label="広がりの推移"></svg>
     </div>
-    <div class="card"><h2>実験3：PageRank の計算を見る<small>くり返し計算</small></h2>
+    <div class="card ex" id="ex3"><h2>実験3：PageRank の計算を見る<small>くり返し計算</small></h2>
       <p class="note" style="margin:0 0 6px">全員に同じ点数 1/n を配り，「リンク先へ点数を山分けして渡す」をくり返す（PR(v) = 0.15/n + 0.85 × Σ PR(u)/出ていく線の数）。赤い点が流れる点数，点の大きさがいまの PageRank。点を選ぶと，その点の計算の中身が出る。</p>
       <div class="btns">
         <button class="btn solid" id="prStart">始める（1/n）</button>
@@ -563,7 +569,7 @@ function renderSide() {
       </div>
       <div class="readout" id="prOut"></div>
     </div>
-    <div class="card"><h2>実験4：グループ分けとモジュラリティ Q<small>自分で塗り分ける</small></h2>
+    <div class="card ex" id="ex4"><h2>実験4：グループ分けとモジュラリティ Q<small>自分で塗り分ける</small></h2>
       <p class="note" style="margin:0 0 6px">色を選んで点をクリックすると，その点のグループが変わり，Q が計算し直される。Q が大きいほど「内側で密，外とは疎」な分け方。</p>
       <div class="btns">
         <button class="btn" id="mdOn">塗り分けを始める</button>
@@ -582,6 +588,13 @@ function renderSide() {
   $("#sizeBy").onchange = e => { S.sizeBy = e.target.value; draw(); renderRank(); };
   $("#colorBy").onchange = e => { S.colorBy = e.target.value; draw(); };
   $("#q").onchange = e => { const v = e.target.value.trim().toLowerCase(); const i = d.nodes.findIndex(n => n.label.toLowerCase() === v || n.id.toLowerCase() === v) ; const j = i >= 0 ? i : d.nodes.findIndex(n => n.label.toLowerCase().includes(v)); if (j >= 0) { select(j); centerOn(j); } };
+  side.querySelectorAll("[data-jump]").forEach(b => b.onclick = () => {
+    const el = $("#" + b.dataset.jump);
+    const top = el.getBoundingClientRect().top - side.getBoundingClientRect().top + side.scrollTop - 6;
+    if (side.scrollHeight > side.clientHeight + 1) side.scrollTop = top;
+    else el.scrollIntoView({ block: "start" });  // 幅の狭い画面では右欄がスクロールしないので，ページごと移動
+    el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+  });
   $("#rmHub").onclick = () => removeBy("hub", 1);
   $("#rmRand").onclick = () => removeBy("rand", 1);
   $("#rmHub5").onclick = () => removeBy("hub", Math.max(1, Math.round(d.nodes.length * .05)));
