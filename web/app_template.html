@@ -259,7 +259,7 @@ const NODE_NOTE = { fb: "点＝友達（「あなた」は本人）", hf_models:
 /* ============================================================ 表示状態 */
 const S = {
   tab: "fb", year: "2024", d: null,
-  sizeBy: "deg", colorBy: "comm", sel: -1, hover: -1, pred: "", crossOnly: false,
+  sizeBy: "deg", colorBy: "comm", sel: -1, hover: -1, pred: "", crossOnly: false, compFrame: false, frameInfo: null,
   pr: null, flow: null, paint: false, paintG: 0, paintNb: false, trace: null,
   removed: new Set(), removedLog: [], infected: null, infHist: [],
   t: d3.zoomIdentity, sx: null, sy: null,
@@ -281,7 +281,7 @@ function sizeOptions(d) {
   return o;
 }
 function colorOptions(d) {
-  const o = [["comm", "コミュニティ"], ["_comp", "まとまり（連結成分）"]];
+  const o = [["comm", "コミュニティ"]];
   if (d.nodes[0].lean) o.unshift(["lean", "政治的立場"]);
   if (d.nodes[0].circle) o.push(["circle", "本人が分けた友達グループ"]);
   if (d.nodes[0].org) o.push(["org", "開発組織"]);
@@ -352,6 +352,23 @@ function draw() {
   const focus = S.sel >= 0 ? S.sel : -1;
   const nbr = focus >= 0 ? new Set(d.adj[focus]) : null;
   const inf = S.infected;
+  // まとまり（連結成分）を枠で囲む：点の色（グループ）とは別に，背景に枠を描く
+  let frames = null;
+  if (S.compFrame) {
+    const ci = compIds(d, S.removed), groups = new Map();
+    d.nodes.forEach((n, i) => { const c = ci.id[i]; if (c < 0 || ci.sizes[c] < 2) return; if (!groups.has(c)) groups.set(c, []); groups.get(c).push(P(n)); });
+    frames = [...groups.values()].sort((a, b) => b.length - a.length);
+    const pad = 14 / t.k, ring = css("--ink2"), fill = css("--bg");
+    frames.forEach((pts, r) => {
+      const hull = pts.length >= 3 ? (d3.polygonHull(pts) || pts) : pts;
+      const path = () => { ctx.beginPath(); hull.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); if (hull.length > 2) ctx.closePath(); };
+      ctx.lineJoin = "round"; ctx.lineCap = "round";
+      ctx.globalAlpha = 1; ctx.strokeStyle = ring; ctx.lineWidth = pad * 2 + 3 / t.k; path(); ctx.stroke(); if (hull.length > 2) { ctx.fillStyle = ring; ctx.fill(); }
+      ctx.strokeStyle = fill; ctx.lineWidth = pad * 2; path(); ctx.stroke(); if (hull.length > 2) { ctx.fillStyle = fill; ctx.fill(); }
+    });
+    ctx.lineJoin = "miter"; ctx.lineCap = "butt";
+    S.frameInfo = { n: frames.length, sizes: frames.map(f => f.length), singles: ci.sizes.filter(x => x === 1).length };
+  }
   // エッジ
   const base = d.nodes.length > 1000 ? .35 : .55;
   for (const [a, b, w] of d.E) {
@@ -451,6 +468,7 @@ function renderLegend(cm) {
   if (S.infected) { el.innerHTML = `<span><i style="background:${css("--bad")}"></i>影響を受けた</span><span><i style="background:${css("--other")}"></i>まだ影響なし</span>`; return; }
   el.innerHTML = cm.legend.map(([l, i]) => `<span><i style="background:${PAL[i]}"></i>${esc(l)}</span>`).join("") +
     (cm.more ? `<span><i style="background:${css("--other")}"></i>${cm.moreLabel || "その他"}</span>` : "") +
+    (S.compFrame && S.frameInfo ? `<span><i style="background:transparent;border:2px solid ${css("--ink2")};border-radius:3px"></i>枠＝まとまり（${S.frameInfo.n}個${S.frameInfo.singles ? `，ほかに1点だけ ${S.frameInfo.singles}` : ""}）</span>` : "") +
     (S.cut && S.cut.size ? `<span><i style="background:transparent;border:2px solid ${css("--bad")}"></i>切り離された点</span>` : "") +
     `<span>大きさ：${S.sizeBy === "_pr" ? "PageRank（計算の途中）" : esc(sizeOptions(S.d).find(o => o[0] === S.sizeBy)?.[1] || "")}</span>`;
 }
@@ -542,12 +560,12 @@ function renderSide() {
       <p class="note">横軸：つながりの数 k，縦軸：k 以上の割合。直線に近いほど「ごく一部のハブに集中」（べき乗則）。</p></div>
     <div class="card ex" id="ex1"><h2>実験1：ノードを取り除く<small>故障・攻撃への強さ</small></h2>
       <div class="btns">
-        <button class="btn solid" id="rmComp">まとまりで色分け</button>
         <button class="btn" id="rmHub">ハブを1つ削除</button>
         <button class="btn" id="rmRand">ランダムに1つ削除</button>
         <button class="btn" id="rmHub5">ハブ上位5%を削除</button>
         <button class="btn ghost" id="rmReset">元に戻す</button>
       </div>
+      <label style="display:flex;gap:6px;align-items:center;font-size:.84rem;margin:6px 0"><input type="checkbox" id="compFrame" ${S.compFrame ? "checked" : ""}> まとまり（連結成分）を枠で囲む</label>
       <p class="readout" id="giantOut"></p>
       <div class="btns"><button class="btn solid" id="robRun">自動実験：ランダム vs 狙い撃ち</button></div>
       <svg class="mini" id="robChart" viewBox="0 0 340 186" role="img" aria-label="頑健性の比較"></svg>
@@ -602,7 +620,7 @@ function renderSide() {
     else el.scrollIntoView({ block: "start" });  // 幅の狭い画面では右欄がスクロールしないので，ページごと移動
     el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
   });
-  $("#rmComp").onclick = () => { S.colorBy = "_comp"; $("#colorBy").value = "_comp"; draw(); };
+  $("#compFrame").onchange = e => { S.compFrame = e.target.checked; draw(); };
   $("#rmHub").onclick = () => removeBy("hub", 1);
   $("#rmRand").onclick = () => removeBy("rand", 1);
   $("#rmHub5").onclick = () => removeBy("hub", Math.max(1, Math.round(d.nodes.length * .05)));
