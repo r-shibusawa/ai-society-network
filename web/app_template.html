@@ -101,6 +101,8 @@ table.rank tr:hover td { background: var(--dim); }
 .mini text { fill: var(--muted); font: 10px var(--f-mono); }
 .mini .ax { stroke: var(--line); }
 .note { font-size: .74rem; color: var(--muted); margin: 6px 0 0; }
+.pred { font-size: .82rem; display: flex; flex-direction: column; gap: 2px; background: var(--accent-soft); border-radius: 6px; padding: 6px 8px; }
+.pred label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
 .readout { font-family: var(--f-mono); font-size: .86rem; font-variant-numeric: tabular-nums; }
 .year { display: flex; gap: 4px; }
 .year button { flex: 1; }
@@ -164,7 +166,7 @@ const TABS = [
 
 const WORK = {
   fb: ["色（自動で見つけたグループ）は，どんな友達の集まり（中学・高校・大学・バイト先など）にあたりそう？",
-       "実験1の「ハブを1つ削除」を押して「あなた」を取り除こう。友達のつながりはどうなる？",
+       "実験1でまず結果を予想してから，「ハブを1つ削除」で「あなた」を取り除こう。予想と同じだった？",
        "「大きさ＝媒介中心性」にして，「あなた」の次に大きい友達を探そう。その人はどんな役割？",
        "「色＝本人が作った友達リスト」に切り替え，自動で見つけたグループと比べよう。"],
   hf_models: ["派生モデル数（入次数）が多い基盤モデルの上位3つは？ 開発元はどこ？",
@@ -222,11 +224,25 @@ function giantShare(d, removed) {
   }
   return best / n;
 }
+// 取り除いた後の「塊」（連結成分）の数と最大の塊の割合
+function components(d, removed) {
+  const n = d.nodes.length, seen = new Uint8Array(n); let best = 0, count = 0;
+  for (let i = 0; i < n; i++) {
+    if (seen[i] || removed.has(i)) continue;
+    let size = 0; const st = [i]; seen[i] = 1; count++;
+    while (st.length) { const v = st.pop(); size++; for (const u of d.adj[v]) if (!seen[u] && !removed.has(u)) { seen[u] = 1; st.push(u); } }
+    if (size > best) best = size;
+  }
+  return { count, giant: best / n };
+}
+// 点が何を表すか（タブを切り替えるたびに図の左上に表示）
+const NODE_NOTE = { fb: "点＝友達（「あなた」は本人）", hf_models: "点＝AIモデル", hf_orgs: "点＝AIの開発組織",
+  pypi: "点＝Python の部品（ライブラリ）", collab: "点＝国", polblogs: "点＝政治ブログ" };
 
 /* ============================================================ 表示状態 */
 const S = {
   tab: "fb", year: "2024", d: null,
-  sizeBy: "deg", colorBy: "comm", sel: -1, hover: -1,
+  sizeBy: "deg", colorBy: "comm", sel: -1, hover: -1, pred: "", crossOnly: false,
   removed: new Set(), removedLog: [], infected: null, infHist: [],
   t: d3.zoomIdentity, sx: null, sy: null,
 };
@@ -311,6 +327,7 @@ function draw() {
   const base = d.nodes.length > 1000 ? .35 : .55;
   for (const [a, b, w] of d.E) {
     if (S.removed.has(a) || S.removed.has(b)) continue;
+    if (S.crossOnly && d.nodes[a].lean && d.nodes[a].lean === d.nodes[b].lean) continue;
     const on = focus >= 0 && (a === focus || b === focus);
     const [x1, y1] = P(d.nodes[a]), [x2, y2] = P(d.nodes[b]);
     ctx.globalAlpha = focus >= 0 ? (on ? .95 : .08) : base;
@@ -456,6 +473,7 @@ function renderSide() {
       <div class="ctl">
         <label for="sizeBy">大きさ</label><select id="sizeBy">${sizeOptions(d).map(([k, l]) => `<option value="${k}" ${k === S.sizeBy ? "selected" : ""}>${l}</option>`).join("")}</select>
         <label for="colorBy">色</label><select id="colorBy">${colorOptions(d).map(([k, l]) => `<option value="${k}" ${k === S.colorBy ? "selected" : ""}>${l}</option>`).join("")}</select>
+        ${d.nodes[0].lean ? `<label for="crossOnly">橋を見る</label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="crossOnly" ${S.crossOnly ? "checked" : ""}> 立場をまたぐリンクだけ表示</label>` : ""}
         <label for="q">検索</label><input type="search" id="q" list="names" placeholder="名前を入力"><datalist id="names">${d.nodes.slice().sort((a, b) => b.deg - a.deg).slice(0, 400).map(n => `<option value="${esc(n.label)}">`).join("")}</datalist>
       </div>
     </div>
@@ -463,6 +481,12 @@ function renderSide() {
     <div class="card"><h2>つながりの数の分布<small>両対数グラフ</small></h2><svg class="mini" id="ddist" viewBox="0 0 340 182" role="img" aria-label="次数分布"></svg>
       <p class="note">横軸：つながりの数 k，縦軸：k 以上の割合。直線に近いほど「ごく一部のハブに集中」（べき乗則）。</p></div>
     <div class="card"><h2>実験1：ノードを取り除く<small>故障・攻撃への強さ</small></h2>
+      <div class="pred"><b>① まず予想：</b>${d.nodes[0].circle ? "「あなた」（最大のハブ）" : "最大のハブ"}を取り除くと？
+        <label><input type="radio" name="pred" value="ほとんど変わらない"> ほとんど変わらない</label>
+        <label><input type="radio" name="pred" value="つながったまま，塊が少し小さくなる"> つながったまま，塊が少し小さくなる</label>
+        <label><input type="radio" name="pred" value="いくつかの塊に分かれる"> いくつかの塊に分かれる</label>
+      </div>
+      <p class="note" style="margin:6px 0"><b>② 実験：</b>ボタンを押す　<b>③ 結果：</b>下の「前 → 後」を見て，予想と比べよう</p>
       <div class="btns">
         <button class="btn" id="rmHub">ハブを1つ削除</button>
         <button class="btn" id="rmRand">ランダムに1つ削除</button>
@@ -472,6 +496,7 @@ function renderSide() {
       <p class="readout" id="giantOut"></p>
       <div class="btns"><button class="btn solid" id="robRun">自動実験：ランダム vs 狙い撃ち</button></div>
       <svg class="mini" id="robChart" viewBox="0 0 340 186" role="img" aria-label="頑健性の比較"></svg>
+      <p class="note">ランダムは10回試した平均。狙い撃ちは最初の次数が大きい順に取り除く（途中で次数を計算し直さない）。つながりの実験で，${d.directed ? "実際にソフトやモデルが動かなくなるかとは別。" : "現実に何が起こるかとは別。"}</p>
     </div>
     <div class="card"><h2>実験2：${d.directed ? "影響の伝わり方" : "情報の広がり方"}<small>${d.directed ? "元が壊れると，それを使う側へ" : "隣の人へ確率的に伝わる"}</small></h2>
       <div class="ctl">
@@ -497,6 +522,8 @@ function renderSide() {
   $("#rmRand").onclick = () => removeBy("rand", 1);
   $("#rmHub5").onclick = () => removeBy("hub", Math.max(1, Math.round(d.nodes.length * .05)));
   $("#rmReset").onclick = () => { S.removed.clear(); updateGiant(); draw(); };
+  side.querySelectorAll('input[name="pred"]').forEach(r => { r.checked = r.value === S.pred; r.onchange = () => { S.pred = r.value; updateGiant(); }; });
+  if ($("#crossOnly")) $("#crossOnly").onchange = e => { S.crossOnly = e.target.checked; draw(); };
   $("#robRun").onclick = runRobust;
   $("#spHub").onclick = () => startSpread(hubIndex());
   $("#spSel").onclick = () => startSpread(S.sel >= 0 ? S.sel : hubIndex());
@@ -522,7 +549,7 @@ function renderDetail() {
   const d = S.d;
   if (S.sel < 0) { el.innerHTML = `<h2>選んだノード</h2><p class="empty">図の中の点をクリックすると，ここに詳しい情報が出ます。</p>`; return; }
   const n = d.nodes[S.sel];
-  const rows = [["次数", n.deg]];
+  const rows = [["次数", n.deg], ["次数中心性", `${n.deg} ÷ ${d.nodes.length - 1} = ${(n.deg / (d.nodes.length - 1)).toFixed(3)}`]];
   if (d.directed) rows.push(["入次数（指される）", n.in], ["出次数（指す）", n.out]);
   if (n.papers != null) rows.push(["論文数（抽出中）", n.papers]);
   if (n.strength != null) rows.push(["重み付き次数", n.strength]);
@@ -583,15 +610,19 @@ function removeBy(mode, k) {
 }
 function updateGiant() {
   const el = $("#giantOut"); if (!el) return;
-  const g = giantShare(S.d, S.removed);
-  el.innerHTML = `削除：${S.removed.size} ノード（${(S.removed.size / S.d.nodes.length * 100).toFixed(1)}%）<br>最大連結成分：<b>${(g * 100).toFixed(1)}%</b>`;
+  const d = S.d, before = d._comp0 || (d._comp0 = components(d, new Set())), after = components(d, S.removed);
+  const diff = (after.giant - before.giant) * 100;
+  el.innerHTML = `削除：${S.removed.size} ノード（${(S.removed.size / d.nodes.length * 100).toFixed(1)}%）<br>` +
+    `最大の塊：${(before.giant * 100).toFixed(1)}% → <b>${(after.giant * 100).toFixed(1)}%</b>（${diff >= 0 ? "+" : ""}${diff.toFixed(1)} ポイント）<br>` +
+    `塊の数：${before.count} → <b>${after.count}</b>` +
+    (S.removed.size && S.pred ? `<br>あなたの予想：「${esc(S.pred)}」。結果と同じだった？ 違ったら，なぜだろう？` : "");
 }
 function runRobust() {
   const d = S.d, n = d.nodes.length, steps = 26, F = d3.range(steps).map(i => i * .02);
   const hubOrder = d.nodes.map((_, i) => i).sort((a, b) => d.nodes[b].deg - d.nodes[a].deg);
   const curve = order => F.map(f => giantShare(d, new Set(order.slice(0, Math.round(f * n)))));
   const att = curve(hubOrder);
-  const R = rng(7), runs = 4, rnd = F.map(() => 0);
+  const R = rng(7), runs = 10, rnd = F.map(() => 0);
   for (let r = 0; r < runs; r++) {
     const o = d.nodes.map((_, i) => i); for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
     curve(o).forEach((v, i) => rnd[i] += v / runs);
@@ -1011,7 +1042,8 @@ function load() {
   S.colorBy = d.nodes[0].lean ? "lean" : d.nodes[0].org ? "org" : d.nodes[0].seed !== undefined ? "seed" : "comm";
   if (!cOpt.includes(S.colorBy)) S.colorBy = cOpt[0];
   $("#capTitle").textContent = d.title;
-  $("#capSrc").textContent = d.edgeNote || "";
+  $("#capSrc").textContent = [NODE_NOTE[S.tab], d.edgeNote].filter(Boolean).join("　");
+  S.crossOnly = false;
   resize(); renderSide();
 }
 
