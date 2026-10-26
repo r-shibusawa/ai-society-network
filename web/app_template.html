@@ -184,9 +184,9 @@ const TABS = [
 
 const WORK = {
   fb: ["色（自動で見つけたグループ）はいくつある？ 同じ色の友達どうしと，違う色の友達どうしでは，どちらが多くつながっている？ 自分の友達なら，どんなグループ（中学・高校・バイト先など）に分かれそう？",
-       "実験1でまず結果を予想してから，「ハブを1つ削除」で「あなた」を取り除こう。予想と同じだった？",
-       "「大きさ＝媒介中心性」にして，「あなた」の次に大きい友達を探そう。その人はどんな役割？",
-       "「色＝本人が分けた友達グループ」に切り替え，自動で見つけたグループと比べよう。"],
+       "実験1でまず結果を予想してから，「ハブを1つ削除」で「人物X」を取り除こう。予想と同じだった？",
+       "「大きさ＝媒介中心性」にして，「人物X」の次に大きい友達を探そう。その人はどんな役割？",
+       "「色＝人物Xが分けた友達グループ」に切り替え，自動で見つけたグループと比べよう。"],
   hf_models: ["派生モデル数（入次数）が多い基盤モデルの上位3つは？ 開発元はどこ？（ランキングの（ ）内や，モデルをクリックした「開発組織」で分かる）",
               "実験2「影響の伝わり方」を最大ハブから開始。影響はどこまで届く？ 全体の何%？ タブ3（組織単位）でも試して比べよう。",
               "ネットワークが「星形」の集まりになっているのはなぜ？"],
@@ -255,7 +255,7 @@ function components(d, removed) {
   return { count, giant: best / n };
 }
 // 点が何を表すか（タブを切り替えるたびに図の左上に表示）
-const NODE_NOTE = { fb: "点＝友達（「あなた」は本人）", hf_models: "点＝AIモデル", hf_orgs: "点＝AIの開発組織",
+const NODE_NOTE = { fb: "点＝人物Xとその友達（人物Xはデータを提供した利用者）", hf_models: "点＝AIモデル", hf_orgs: "点＝AIの開発組織",
   pypi: "点＝Python の部品（ライブラリ）", collab: "点＝国", polblogs: "点＝政治ブログ" };
 
 /* ============================================================ 表示状態 */
@@ -285,7 +285,7 @@ function sizeOptions(d) {
 function colorOptions(d) {
   const o = [["comm", "コミュニティ"]];
   if (d.nodes[0].lean) o.unshift(["lean", "政治的立場"]);
-  if (d.nodes[0].circle) o.push(["circle", "本人が分けた友達グループ"]);
+  if (d.nodes[0].circle) o.push(["circle", "人物Xが分けた友達グループ"]);
   if (d.nodes[0].org) o.push(["org", "開発組織"]);
   if (d.nodes[0].seed !== undefined) o.push(["seed", "主要AIライブラリか"]);
   return o;
@@ -661,7 +661,7 @@ function renderDetail() {
   if (n.papers != null) rows.push(["論文数（抽出中）", n.papers]);
   if (n.strength != null) rows.push(["重み付き次数", n.strength]);
   rows.push(["媒介中心性", fmt(n.btw, 4)], ["PageRank", fmt(n.pr, 4)], ["クラスター係数", fmt(n.cc)], ["コミュニティ", `グループ${n.comm + 1}`]);
-  if (n.circle) rows.push(["本人が分けたグループ", n.circle]);
+  if (n.circle) rows.push(["人物Xが分けたグループ", n.circle]);
   if (n.lean) rows.push(["政治的立場", n.lean]);
   if (n.org) rows.push(["開発組織", n.org]);
   if (n.task) rows.push(["タスク", n.task]);

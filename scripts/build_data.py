@@ -115,16 +115,16 @@ for i, c in enumerate(circles):  # 大きいリストから順に割り当て（
     for v in c:
         circle_of.setdefault(v, f"分類{'ABCDEFGH'[i]}" if i < 8 else "その他の分類")
 num = {v: i + 1 for i, v in enumerate(sorted((v for v in F if v != "ego"), key=int))}
-F = nx.relabel_nodes(F, {v: ("あなた" if v == "ego" else f"友達{num[v]}") for v in F})
+F = nx.relabel_nodes(F, {v: ("人物X" if v == "ego" else f"友達{num[v]}") for v in F})
 circle_of = {f"友達{num[v]}": c for v, c in circle_of.items() if v in num}
 btw, pr, comm, clust, stats = metrics(F)
 pos = layout(F, iters=400, k=0.12)
 nodes, links = pack(F, pos, btw, pr, comm, clust,
-                    extra=lambda n: {"circle": "本人" if n == "あなた" else circle_of.get(n, "分類なし")})
+                    extra=lambda n: {"circle": "人物X" if n == "人物X" else circle_of.get(n, "分類なし")})
 OUT["fb"] = {
     "title": "SNSの友達ネットワーク（Facebook）", "directed": False,
     "source": "SNAP ego-Facebook（McAuley & Leskovec, 2012）。ある1人の利用者の友達150人と，その友達どうしのつながり（匿名化済み）",
-    "edgeNote": "線＝Facebook上の友達関係。「あなた」は全員とつながっている",
+    "edgeNote": "線＝Facebook上の友達関係。「人物X」は全員とつながっている",
     "nodes": nodes, "links": links, "stats": stats,
 }
 
