@@ -1038,7 +1038,14 @@ function renderLab() {
       <li>同じノード数・平均次数で「ランダム」と「スケールフリー」を作り，分布と最大次数を比べよう。</li>
       <li>スモールワールドで「つなぎ替え確率」を0→0.1にすると平均距離とクラスター係数はどう変わる？</li>
       <li>エコーチェンバー実験：つなぎ直す確率 φ を上げると，異なる意見どうしのつながりはどうなる？</li>
-      <li>C で3つのモデルを並べ，ハブを取り除いたときの崩れ方を比べよう。どのモデルが一番もろい？</li></ol></div>
+      <li>C で3つのモデルを並べ，ハブを取り除いたときの崩れ方を比べよう。どのモデルが一番もろい？</li>
+      <li>D で批判する3人を「ハブ」と「つながりの少ない人」に切り替えよう。批判する人数は同じなのに，何が変わる？</li></ol></div>
+    <div class="card"><h2>D. 多数派の錯覚を体験する<small>15人の模式図</small></h2>
+      <p class="note" style="margin:0 0 6px">批判を表明する人（赤）は，どちらも15人中3人（20%）。黒い輪＝つながる相手の過半数が批判を表明している人。</p>
+      <div class="btns"><button class="btn" id="miCalm">批判する3人：つながりが少ない人</button><button class="btn" id="miHub">批判する3人：ハブ</button></div>
+      <div class="stats" id="miStats" style="margin-top:8px"></div>
+      <p class="note">数えているのは「つながる相手のうち赤の割合が50%を超える人」。その人に尋ねた結果ではない。説明用の模式図（Lerman et al. 2016 をもとに作成）。</p>
+    </div>
     <div class="card"><h2>C. 3つのモデルを並べて比べる<small>同じノード数・同じエッジ数</small></h2>
       <p class="note" style="margin:0 0 6px">A の「ノード数」「平均次数」で，ランダム・スモールワールド（つなぎ替え確率 0.1）・スケールフリー（優先的選択）を同時に作る。</p>
       <div class="btns"><button class="btn solid" id="cmpMake">3つ並べて作る</button><button class="btn" id="cmpHub">それぞれハブ上位5%を取り除く</button><button class="btn ghost" id="cmpReset">元に戻す</button></div>
@@ -1080,6 +1087,8 @@ function renderLab() {
   $("#ggrow").onclick = () => makeModel(true);
   $("#echoRun").onclick = runEcho;
   $("#cmpMake").onclick = makeCompare;
+  $("#miCalm").onclick = () => makeMI(false);
+  $("#miHub").onclick = () => makeMI(true);
   $("#cmpHub").onclick = () => { if (!LAB || LAB.kind !== "compare") makeCompare(); LAB.cut = true; drawLab(); };
   $("#cmpReset").onclick = () => { if (LAB && LAB.kind === "compare") { LAB.cut = false; drawLab(); } };
   $("#echoStop").onclick = () => { clearInterval(labTimer); labTimer = null; };
@@ -1202,6 +1211,50 @@ function makeCompare() {
       .map(([l, f]) => `<tr><td class="name">${l}</td>${parts.map(P => `<td class="n">${f(P)}</td>`).join("")}</tr>`).join("");
   drawLab();
 }
+/* ---------- D. 多数派の錯覚（スライドと同じ15人の模式図） */
+function makeMI(hub) {
+  clearInterval(labTimer); labTimer = null; if (labSim) labSim.stop();
+  const reds = [0, 1, 2], E = [], pos = [];
+  const ang = [0, 1, 2].map(k => -Math.PI / 2 + 2 * Math.PI * k / 3);
+  ang.forEach(a => pos.push([0.62 * Math.cos(a), 0.62 * Math.sin(a)]));
+  for (let k = 0; k < 3; k++) for (let j = 0; j < 4; j++) {
+    const a = ang[k] + Math.PI / 3 + (j - 1.5) * 0.36;
+    pos.push([1.2 * Math.cos(a), 1.2 * Math.sin(a)]);
+  }
+  for (let i = 0; i < 12; i++) {
+    const k = Math.floor(i / 4), j = i % 4, g = 3 + i;
+    const pair = 3 + 4 * k + (j ^ 1); if (g < pair) E.push([g, pair]);
+    E.push([g, reds[k]], [g, reds[(k + 1) % 3]]);
+  }
+  const angry = new Set(hub ? reds : [3, 7, 11]);
+  const adj = pos.map(() => []); E.forEach(([a, b]) => { adj[a].push(b); adj[b].push(a); });
+  const fooled = new Set(pos.map((_, i) => i).filter(i => adj[i].filter(u => angry.has(u)).length / adj[i].length > .5));
+  LAB = { kind: "mi", pos, E, angry, fooled, reds: new Set(reds), nodes: [] };
+  S.t = d3.zoomIdentity; d3.select(cv).call(zoom.transform, d3.zoomIdentity);
+  $("#miStats").innerHTML = statBox("3人（20%）", "批判を表明する人") + statBox(`${fooled.size}人`, "身近で批判が<br>多数に見える人");
+  $("#miCalm").classList.toggle("solid", !hub); $("#miHub").classList.toggle("solid", hub);
+  drawLab();
+}
+function drawMI() {
+  const t = S.t, L = LAB, s0 = Math.min(W, H - 120) / 2 / 1.35;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  ctx.save(); ctx.translate(t.x, t.y); ctx.scale(t.k, t.k); ctx.translate(W / 2, H / 2 + 20);
+  const P = i => [L.pos[i][0] * s0, L.pos[i][1] * s0];
+  for (const [a, b] of L.E) {
+    const hot = L.angry.has(a) || L.angry.has(b);
+    ctx.strokeStyle = hot ? css("--bad") : css("--edge"); ctx.globalAlpha = hot ? .7 : .8; ctx.lineWidth = 2 / t.k;
+    ctx.beginPath(); ctx.moveTo(...P(a)); ctx.lineTo(...P(b)); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  L.pos.forEach((_, i) => {
+    const [x, y] = P(i), r = (L.reds.has(i) ? 22 : 13) / Math.sqrt(t.k);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fillStyle = L.angry.has(i) ? css("--bad") : css("--other"); ctx.fill();
+    if (L.fooled.has(i)) { ctx.beginPath(); ctx.arc(x, y, r + 6 / t.k, 0, Math.PI * 2); ctx.lineWidth = 3 / t.k; ctx.strokeStyle = css("--ink"); ctx.stroke(); }
+  });
+  ctx.restore();
+  $("#legend").innerHTML = `<span><i style="background:${css("--bad")}"></i>批判を表明する人（3人）</span><span><i style="background:transparent;border:2px solid ${css("--ink")}"></i>つながる相手の過半数が批判（${L.fooled.size}人）</span><span>大きい点＝ハブ</span>`;
+}
+
 function drawCompare() {
   const t = S.t, parts = LAB.parts, pw = W / 3, panel = css("--panel");
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
@@ -1231,6 +1284,7 @@ function drawCompare() {
 function drawLab() {
   if (S.tab !== "lab" || !LAB) return;
   if (LAB.kind === "compare") return drawCompare();
+  if (LAB.kind === "mi") return drawMI();
   const t = S.t, nodes = LAB.nodes;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
   const ext = 1.1 * (d3.max(nodes, d => Math.max(Math.abs(d.x), Math.abs(d.y))) || 1);
