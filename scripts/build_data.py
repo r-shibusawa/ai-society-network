@@ -159,7 +159,7 @@ def hf_extra(n):
 nodes, links = pack(H, pos, btw, pr, comm, clust, extra=hf_extra, label=lambda n: n.split("/")[-1])
 OUT["hf_models"] = {
     "title": "AIモデルの家系図（Hugging Face）", "directed": True,
-    "source": "Hugging Face Hub API（ダウンロード数上位5,000件＋いいね数上位5,000件のモデルの base_model 情報，2026年10月取得）",
+    "source": "Hugging Face Hub API（ダウンロード数上位5,000件＋いいね数上位5,000件のモデルの base_model 情報，2026年10月取得）。Hugging Face に重みが公開されたモデル（オープンウェイト）のみで，GPT・Claude・Gemini などの非公開モデルは含まない。派生関係は作者が記載した base_model 情報による。",
     "edgeNote": "矢印は「派生モデル → 元になった基盤モデル」",
     "nodes": nodes, "links": links, "stats": stats,
 }
@@ -186,7 +186,7 @@ nodes, links = pack(Org, pos, btw, pr, comm, clust, weight="weight",
                     extra=lambda n: {"used": Org.in_degree(n, weight="weight")})
 OUT["hf_orgs"] = {
     "title": "AI開発組織のつながり（Hugging Face）", "directed": True,
-    "source": "上記 Hugging Face データを開発組織（アカウント）単位に集約。重み＝派生モデル数",
+    "source": "上記 Hugging Face データを開発組織（アカウント）単位に集約。重み＝派生モデル数。Hugging Face に重みが公開されたモデル（オープンウェイト）のみで，GPT・Claude・Gemini などの非公開モデルは含まない。派生関係は作者が記載した base_model 情報による。",
     "edgeNote": "矢印は「派生モデルを作った組織 → 基盤モデルを公開した組織」",
     "nodes": nodes, "links": links, "stats": stats,
 }
